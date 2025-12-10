@@ -7,3 +7,5 @@ afe_data/
 afe_data_param_tuning/
 build/
 dataset1/
+.idea/
+cpp/.idea/
