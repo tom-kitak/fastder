@@ -204,7 +204,7 @@ void Parser::read_mm(std::string filename) {
             if (mm_ids.contains(mm_id) && this->chr_permitted(rr_all_sj[sj_id - 1].chrom)) // rail_id_to_mm_id has <rail_id, mm_id> mapping
             {
                 // store vector of sj_ids for each chromosome
-                mm_chrom_sj[rr_all_sj[sj_id - 1].chrom].push_back(sj_id); // this creates the binding if it doesn't exist yet, initializes it to 0 and then increases it by count
+                mm_chrom_sj[rr_all_sj[sj_id - 1].chrom].push_back(sj_id);
             }
         }
         std::cout << "[INFO] MM file contains " << count_lines << " lines"<< std::endl;
@@ -407,6 +407,7 @@ void Parser::search_directory() {
     unsigned int nof_threads = std::min(max_threads, nof_samples);
 
     // launch separate thread to parse MM file
+    std::cout << "[FILE] Processing MM File" << std::endl;
     std::thread mm_thread(&Parser::read_mm, this, mm_file);
 
     // parse all bedgraph files concurrently
