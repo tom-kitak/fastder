@@ -19,8 +19,9 @@
 #include <filesystem>
 
 // constructor
-Parser::Parser(std::string path_, std::vector<std::string> chromosomes_) {
+Parser::Parser(std::string path_, std::vector<std::string> chromosomes_, int cores_) {
     path = path_;
+    user_cores = cores_;
     // default: use all chromosomes
     if (chromosomes_.empty())
     {
@@ -162,8 +163,6 @@ void Parser::read_mm(std::string filename) {
         uint64_t count_lines = 0;
         while (std::getline(file, line))
         {
-
-
             ++count_lines;
             // read in line by line
             std::istringstream iss(line);
@@ -199,21 +198,14 @@ void Parser::read_mm(std::string filename) {
             // NEW: cumulative counts of a sj_id across all samples in the input
 
             // find the rail_id based on the mm_id --> only add sj_id if the mm_id is part of the samples
-            auto it = std::find_if(rail_id_to_mm_sample_id.begin(), rail_id_to_mm_sample_id.end(), [&] (const auto& p)
-            {
-                return p.second == mm_id;
-            });
 
-            // add count if the mm was found and if chr is in bedgraph
-            //std::cout << rr_all_sj[sj_id].chrom << " for splice junction " << sj_id << std::endl;
+            // add count if the mm_id was found and if the chr is meant to be used
 
-            if (it != rail_id_to_mm_sample_id.end() && this->chr_permitted(rr_all_sj[sj_id - 1].chrom)) // rail_id_to_mm_id has <rail_id, mm_id> mapping
+            if (mm_ids.contains(mm_id) && this->chr_permitted(rr_all_sj[sj_id - 1].chrom)) // rail_id_to_mm_id has <rail_id, mm_id> mapping
             {
                 // store vector of sj_ids for each chromosome
                 mm_chrom_sj[rr_all_sj[sj_id - 1].chrom].push_back(sj_id); // this creates the binding if it doesn't exist yet, initializes it to 0 and then increases it by count
-                //std::cout << mm_chrom_sj[rr_all_sj[sj_id - 1].chrom].back() << std::endl;
             }
-            //
         }
         std::cout << "[INFO] MM file contains " << count_lines << " lines"<< std::endl;
         assert(sj_occ_in_samples <= count_lines);
@@ -254,13 +246,8 @@ void Parser::read_url_csv(std::string filename)
             int rail_id = std::stoi(rail_id_str);
             rail_id_to_ext_id.push_back(std::make_pair(rail_id, sample_id));
         }
-
-
     }
-
     // sorting is n log n and finding the position + inserting can be n*n, so better to push_back and then sort
-
-
 }
 
 // creates a map of rail_id to mm_id in rail_id_to_mm_id
@@ -287,9 +274,7 @@ void Parser::fill_up(std::vector<std::string> bedgraph_files)
         if (it != rail_id_to_ext_id.end())
         {
             unsigned int mm_id = std::distance(rail_id_to_ext_id.begin(), it) + 1; // std::distance counts the steps between two iterators --> mm_id is 1 too small, so add 1
-            unsigned int rail_id = it->first;
-
-            rail_id_to_mm_sample_id.push_back(std::make_pair(rail_id, mm_id));
+            mm_ids.insert(mm_id);
         }
         else
         {
@@ -415,10 +400,10 @@ void Parser::search_directory() {
 
     // fill up rail_id_to_mm_id mapping for all rail_ids provided by the user
     fill_up(bedgraph_files);
-    std::cout << "[INFO] User provided " << rail_id_to_mm_sample_id.size() << " bedgraph files." << std::endl;
+    std::cout << "[INFO] User provided " << mm_ids.size() << " bedgraph files." << std::endl;
 
-    unsigned int max_threads = std::max(int(std::thread::hardware_concurrency()), 4); //require at least 4 cores
-    unsigned int nof_samples =  rail_id_to_mm_sample_id.size();
+    unsigned int max_threads = std::max(user_cores, min_cores); //require at least 3 cores + 1 core fo
+    unsigned int nof_samples =  mm_ids.size();
     unsigned int nof_threads = std::min(max_threads, nof_samples);
 
     // launch separate thread to parse MM file

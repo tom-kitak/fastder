@@ -9,12 +9,13 @@
 #include <map>
 #include <filesystem>
 #include <fstream>
+#include <unordered_set>
 
 namespace fs = std::filesystem;
 
 class Parser {
 public:
-    Parser(std::string path_, std::vector<std::string> chromosomes_);
+    Parser(std::string path_, std::vector<std::string> chromosomes_, int cores_);
     void search_directory();
 
     // Cache MM file because it takes so long to parse
@@ -34,7 +35,8 @@ public:
     static void compute_per_base_coverage(const BedGraphRow& row, std::unordered_map<std::string, std::vector<double>>& per_base_coverage);
 
     // TODO add function get_rail_id_from_filename(filename)?
-
+    int user_cores;
+    const int min_cores = 3;
     std::string path;
     std::vector<std::string> chromosomes;
     std::vector<std::vector<BedGraphRow>> all_bedgraphs; //TODO maybe change to unordered map with key = sample id, value = bedgraph of the sample?
@@ -46,8 +48,9 @@ public:
     std::map<std::string, std::vector<uint64_t>> mm_chrom_sj; // <chrom, sj_id> ordered by sj_id, map of sj occurring in samples part of the user input
 
     std::vector<std::pair<unsigned int, std::string>> rail_id_to_ext_id; // <rail_id, external_id> for all samples in the dataset
+    // later sorted by rail_id to receive rank (= mm_id)
 
-    std::vector<std::pair<unsigned int, unsigned int>> rail_id_to_mm_sample_id; // <rail_id, mm_id> mapping
+    std::unordered_set<unsigned int> mm_ids; // <mm_id, rail_id> mapping for fast mm_id lookup
 
 
     const std::vector<std::string> permitted_chromosomes =  {

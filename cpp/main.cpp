@@ -24,6 +24,7 @@ int main(int argc, char* argv[]) {
     double min_coverage = 0.05;
     std::string directory  = "../data";
     bool directory_provided = true;
+    int cores = 4;
 
     std::cout
     << "\n "
@@ -74,6 +75,10 @@ int main(int argc, char* argv[]) {
         else if (arg == "--position-tolerance")
         {
             position_tolerance = atoi(argv[++i]);
+        }
+        else if (arg == "--cores")
+        {
+            cores = atoi(argv[++i]);
         }
         else if (arg == "--min-length")
         {
@@ -130,7 +135,7 @@ int main(int argc, char* argv[]) {
     }
 
     // parse files
-    Parser parser(directory, chromosomes);
+    Parser parser(directory, chromosomes, cores);
     parser.search_directory();
 
     // get mean coverage vector
