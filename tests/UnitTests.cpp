@@ -323,9 +323,10 @@ TEST(Parser, TestWrongChromosomeOrder)
     int min_length = 5;
     double coverage_tolerance = 0.1;
     double coverage_threshold = 0.25;
+    int cores = 4;
     std::vector<std::string> chromosomes = {"chr2", "chr1"}; // intentionally wrong order
     // parse files
-    Parser parser = Parser(directory, chromosomes);
+    Parser parser = Parser(directory, chromosomes, cores);
     parser.search_directory();
 
     // get mean coverage vector
