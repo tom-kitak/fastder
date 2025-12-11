@@ -16,6 +16,7 @@
 
 #include "Parser.h"
 
+#include <charconv>
 #include <filesystem>
 
 // constructor
@@ -39,14 +40,14 @@ Parser::Parser(std::string path_, std::vector<std::string> chromosomes_, int cor
             // add chr to list of whitelisted chromosomes
             if (permitted_chromosomes.contains(chr))
             {
-                chromosomes_vec.push_back(chr);
+                chromosomes_vec.emplace_back(chr);
                 chromosomes_set.insert(chr);
             }
         }
     }
 }
 
-// fill vector with coverage value per bp (since different bedgraphs have different binning intervals)
+// fill vector with coverage value per bp (for mean coverage computation later on -> different bedgraphs have different binning intervals)
 void Parser::compute_per_base_coverage(const BedGraphRow& row, std::unordered_map<std::string, std::vector<double>>& per_base_coverage)
 {
     // row.end is NOT inclusive
@@ -89,7 +90,7 @@ std::vector<BedGraphRow> Parser::read_bedgraph(const std::string& filename, uint
             // end is not inclusive, since row1.end == row2.start of the next row
             row.total_reads = row.length * row.coverage; //if start = 22, end = 25, coverage = 3 --> (25 - 22) * 3 = 3 * 3 = 9
             library_size += row.total_reads;
-            bedgraph.push_back(row);
+            bedgraph.emplace_back(row);
         }
 
     }
@@ -125,12 +126,13 @@ void Parser::read_rr(std::string filename)
         iss >> row;
 
         // rr_all_sj needs to contain all sj_ids, even those of chromosomes that aren't provided in the bedgraph files --> otherwise the mapping from RR to MM file via sj_id is broken
-        rr_all_sj.push_back(row);
+        rr_all_sj.emplace_back(row);
     }
     std::cout << "[INFO] Total number of splice junctions: " << rr_all_sj.size() << std::endl;
     //assert(rr_all_sj.size() == 9484210);
 
 }
+
 
 
 // create dictionary mm_sj_counts with keys (sj_id) and values (cumulative count of this sj across samples)
@@ -148,21 +150,18 @@ void Parser::read_mm(std::string filename) {
         }
         std::string line;
         bool seen_header = false;
-        uint64_t nr_of_sj, sj_occ_in_samples, nr_of_samples;
+        uint64_t nr_of_sj = 0;
+        uint64_t sj_occ_in_samples = 0;
+        unsigned int nr_of_samples = 1;
         //auto sj_id_prev = 0;
         uint64_t count_lines = 0;
         while (std::getline(file, line))
         {
             ++count_lines;
             // read in line by line
-            std::istringstream iss(line);
-
-
-            //skip comments
-            if (line[0] == '%') continue;
-
-            // allows skipping the first line without a %
+            if (line[0] == '%' || line.empty()) continue;
             if (!seen_header) {
+                std::istringstream iss(line);
                 // header: 9484210	2931	699368828, actual #lines = 699368831
                 iss >> nr_of_sj >> nr_of_samples >> sj_occ_in_samples;
                 //std::cout << nr_of_sj << ", " << rr_all_sj.size() << std::endl;
@@ -174,27 +173,39 @@ void Parser::read_mm(std::string filename) {
                 continue;
             }
 
-            // skip invalid lines
-            uint64_t sj_id;
-            unsigned int mm_id, count;
+            uint64_t sj_id = 0;
+            unsigned int mm_id = 0;
+            unsigned int count = 0;
+            // use std::from_chars for faster, manual parsing
+            const char* p = line.data();
+            const char* end = p + line.size(); // end of the line
 
-            if (!(iss >> sj_id >> mm_id >> count)){
+
+            std::from_chars_result res1 = std::from_chars(p, end, sj_id);
+            if (res1.ec != std::errc{})
+            {
                 std::cout << "[ERROR] Malformed line in MM file: " << line << std::endl;
-                std::cout << line << std::endl;
                 continue;
             }
+            p = res1.ptr;
 
-            // OLD: mm_by_samples[sample_id].push_back(std::make_pair(sj_id, count));
-            // NEW: cumulative counts of a sj_id across all samples in the input
+            // skip whitespace and tab
+            while (p < end &&  (*p == ' ' || *p == '\t')) p++;
 
-            // find the rail_id based on the mm_id --> only add sj_id if the mm_id is part of the samples
+            std::from_chars_result res2 = std::from_chars(p, end, mm_id);
+            if (res2.ec != std::errc{})
+            {
+                std::cout << "[ERROR] Malformed line in MM file: " << line << std::endl;
+                continue;
+            }
+            p = res2.ptr;
 
-            // add count if the mm_id was found
+            // add count if the mm_id corresponds to any of the provided samples
             // check in chromosomes_set to prevent using splice junctions on chromosomes that weren't parsed
             if (mm_ids.contains(mm_id) && chromosomes_set.contains(rr_all_sj[sj_id - 1].chrom)) // rail_id_to_mm_id has <rail_id, mm_id> mapping
             {
                 // store vector of sj_ids for each chromosome
-                mm_chrom_sj[rr_all_sj[sj_id - 1].chrom].push_back(sj_id);
+                mm_chrom_sj[rr_all_sj[sj_id - 1].chrom].emplace_back(sj_id);
             }
         }
         std::cout << "[INFO] MM file contains " << count_lines << " lines"<< std::endl;
@@ -232,12 +243,11 @@ void Parser::read_url_csv(std::string filename)
         if (std::getline(iss, rail_id_str, ',') && std::getline(iss, sample_id, ','))
         {
             //convert to integer
-
             int rail_id = std::stoi(rail_id_str);
-            rail_id_to_ext_id.push_back(std::make_pair(rail_id, sample_id));
+            rail_id_to_ext_id.emplace_back(std::make_pair(rail_id, sample_id));
         }
     }
-    // sorting is n log n and finding the position + inserting can be n*n, so better to push_back and then sort
+    // sorting is n log n and finding the position + inserting can be n*n, so better to emplace_back and then sort
 }
 
 // creates a map of rail_id to mm_id in rail_id_to_mm_id
@@ -361,7 +371,7 @@ void Parser::search_directory() {
         else if (filename.find(".bedGraph") != std::string::npos)
         {
             std::cout << "[INPUT] Bedgraph file "<< filename << std::endl;
-            bedgraph_files.push_back(filename);
+            bedgraph_files.emplace_back(filename);
         }
 
         else if (entry.path().extension().string() == ".MM" && filename.find("ALL.MM") != std::string::npos && filename.find("mmcache") == std::string::npos) {

@@ -138,6 +138,11 @@ int main(int argc, char* argv[]) {
     Parser parser(directory, chromosomes, cores);
     parser.search_directory();
 
+    // print parsing duration
+    auto end_parsing = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed_parsing = end_parsing - start;
+    std::cout << "[INFO] Parsing took " << elapsed_parsing.count() << " seconds\n";
+
     // get mean coverage vector
     Averager averager;
     averager.compute_mean_coverage(parser.all_per_base_coverages);

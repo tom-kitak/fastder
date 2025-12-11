@@ -37,7 +37,7 @@ double StitchedER::get_avg_coverage(){
 void StitchedER::append(int er_id, unsigned int length, double coverage)
 {
 
-    er_ids.push_back(er_id); // -1 for spliced regions
+    er_ids.emplace_back(er_id); // -1 for spliced regions
     all_coverages.push_back({std::make_pair(length, coverage)});
     // only update avg coverage if an exon was added
     if (er_id != -1)

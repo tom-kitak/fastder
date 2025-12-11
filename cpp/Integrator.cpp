@@ -47,30 +47,13 @@ bool Integrator::sj_too_far_back(const uint64_t most_recent_er_end, const uint64
 
 void Integrator::stitch_up(std::unordered_map<std::string, std::vector<BedGraphRow>>& expressed_regions, const std::map<std::string, std::vector<uint64_t>>& mm_chrom_sj, const std::vector<SJRow>& rr_all_sj)
 {
-    // print all splice junctions in chromosome 1
-    // std::cout << "--TEST SJ--" << std::endl;
-    // for (auto& cov : mm_chrom_sj.at("chr1"))
-    // {
-    //     std::cout << cov << ", " << rr_all_sj.at(cov - 1) << std::endl;
-    // }
-    // std::cout << "--TEST SJ--" << std::endl;
-    //
-    // // print all ERs in chromosome 1
-    // std::cout << "--TEST ERs--" << std::endl;
-    // for (auto& er : expressed_regions.at("chr1"))
-    // {
-    //     er.print();
-    // }
-    // std::cout << "--TEST ERs--" << std::endl;
     // iterate over chromosomes and sj_ids -> sjs.first = chrom, sjs.second = vector<sj_id>
     for (auto& sjs : mm_chrom_sj)
     {
         std::cout << "[INFO] Stitching chromosome " << sjs.first << std::endl;
         std::string chrom = sjs.first;
         StitchedER er1 = StitchedER(expressed_regions.at(chrom).at(0), 0); // define the first StitchedER, currently consisting of 1 ER
-        stitched_ERs.push_back(er1);
-
-        expressed_regions.at(chrom).at(0).print();
+        stitched_ERs.emplace_back(er1);
         auto current_sj_id = sjs.second.begin(); // iterator over the vector of sj_id
 
         int max_stitched_ers = 0;
@@ -133,7 +116,7 @@ void Integrator::stitch_up(std::unordered_map<std::string, std::vector<BedGraphR
                 else
                 {
                     nof_stitched_ers = 1; // reset counter
-                    stitched_ERs.push_back(StitchedER(expressed_region, i));
+                    stitched_ERs.emplace_back(StitchedER(expressed_region, i));
 
 
                 }
@@ -144,7 +127,7 @@ void Integrator::stitch_up(std::unordered_map<std::string, std::vector<BedGraphR
             // no more splice junctions left, so each remaining expressed region forms its own StitchedER
             else
             {
-                stitched_ERs.push_back(StitchedER(expressed_region, i));
+                stitched_ERs.emplace_back(StitchedER(expressed_region, i));
             }
         }
         std::cout << "[INFO] Longest stitched ER contains " << max_stitched_ers << " ERs" << std::endl;
