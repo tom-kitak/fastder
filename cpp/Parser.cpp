@@ -78,7 +78,8 @@ std::vector<BedGraphRow> Parser::read_bedgraph(const std::string& filename, uint
     // iterate over lines
     while (std::getline(file, line))
     {
-        // read in line by line
+        // read in line by line with std::from_chars()
+
         std::istringstream iss(line);
         //std::cout << line  << std::endl;
         BedGraphRow row = BedGraphRow();
@@ -140,6 +141,9 @@ void Parser::read_rr(std::string filename)
 void Parser::read_mm(std::string filename) {
         //read in file from path
         std::ifstream file(filename);
+        //
+        // static thread_local std::vector<char> buf(1 << 20); // set buffer to 1mb;
+        // file.rdbuf()->pubsetbuf(buf.data(), static_cast<std::streamsize>(buf.size()));
         // max index is 2931 (= nr of samples)
         // min index is 0
         // mm_by_samples.size() = 2931
@@ -411,104 +415,10 @@ void Parser::search_directory() {
     std::thread mm_thread(&Parser::read_mm, this, mm_file);
 
     // parse all bedgraph files concurrently
-    read_all_bedgraphs(bedgraph_files, nof_threads);
+    //read_all_bedgraphs(bedgraph_files, nof_threads);
 
     // stop MM thread
     mm_thread.join();
     std::cout << "[INFO] Finished parsing all files." << std::endl;
 
-}
-// CACHING MM FILE
-
-namespace fs = std::filesystem;
-
-//choose caching path
-static fs::path mm_cache_path(const fs::path& src) {
-    //return mm_path.parent_path() / (mm_path.filename().string() + ".mmcache");
-    if (src.extension() == ".mmcache") return src;
-    fs::path cache = src;
-    cache += ".mmcache";
-
-    return cache;
-}
-
-//serialize parsed result (mm_chrom_sj)
-void Parser::save_mm_cache_(const fs::path& cache) const {
-    std::ofstream out(cache, std::ios::binary);
-    if (!out) throw std::runtime_error("Cannot open cache for write: " + cache.string());
-
-    //magic + version (helps future-proofing)
-    const uint32_t magic = 0x4D4D4348; // "MMCH"
-    const uint32_t version = 1;
-    out.write((char*)&magic, sizeof(magic));
-    out.write((char*)&version, sizeof(version));
-
-    uint64_t n = mm_chrom_sj.size();
-    out.write((char*)&n, sizeof(n));
-    for (const auto& [chrom, sjs] : mm_chrom_sj) {
-        // write key string
-        const uint64_t klen = (uint64_t)chrom.size();
-        out.write((char*)&klen, sizeof(klen));
-        out.write(chrom.data(), (std::streamsize)klen);
-
-        // write value vector<uint64_t>
-        const uint64_t vlen = (uint64_t)sjs.size();
-        out.write((char*)&vlen, sizeof(vlen));
-        if (vlen) {
-            out.write((const char*)sjs.data(), (std::streamsize)(vlen * sizeof(uint64_t)));
-        }
-    }
-}
-
-bool Parser::load_mm_cache_(const fs::path& cache) {
-    std::ifstream in(cache, std::ios::binary);
-    if (!in) return false;
-
-    uint32_t magic=0, version=0;
-    in.read((char*)&magic, sizeof(magic));
-    in.read((char*)&version, sizeof(version));
-    if (magic != 0x4D4D4348 || version != 1) return false;
-
-    uint64_t n=0;
-    in.read((char*)&n, sizeof(n));
-    mm_chrom_sj.clear();
-
-    for (uint64_t i=0; i<n; ++i) {
-        // read key string
-        uint64_t klen=0;
-        in.read((char*)&klen, sizeof(klen));
-        std::string chrom;
-        chrom.resize((size_t)klen);
-        if (klen) in.read(chrom.data(), (std::streamsize)klen);
-
-        // read value vector<uint64_t>
-        uint64_t vlen=0;
-        in.read((char*)&vlen, sizeof(vlen));
-        std::vector<uint64_t> sjs;
-        sjs.resize((size_t)vlen);
-        if (vlen) {
-            in.read((char*)sjs.data(), (std::streamsize)(vlen * sizeof(uint64_t)));
-        }
-
-        mm_chrom_sj.emplace(std::move(chrom), std::move(sjs));
-    }
-    return true;
-}
-
-//instead of read_mm(filename)
-void Parser::read_mm_cached_always(const std::string& filename) {
-    fs::path mm_path = filename;
-    fs::path cache   = mm_cache_path(mm_path);
-
-    if (fs::exists(cache)) {
-        std::cout << "Loading MM cache: " << cache << std::endl;
-        if (load_mm_cache_(cache)) return;           // done
-        std::cout << "Cache corrupt; rebuilding…" << std::endl;
-    }
-
-    // First run (no cache) or cache unreadable: parse once, then save
-    std::cout << "Parsing MM and creating cache…" << std::endl;
-    read_mm(filename);               // fills mm_chrom_sj
-    save_mm_cache_(cache);
-    std::cout << "Cached at: " << cache << std::endl;
 }
