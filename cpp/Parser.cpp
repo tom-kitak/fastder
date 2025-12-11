@@ -22,11 +22,14 @@
 Parser::Parser(std::string path_, std::vector<std::string> chromosomes_, int cores_) {
     path = path_;
     user_cores = cores_;
+
     // default: use all chromosomes
     if (chromosomes_.empty())
     {
         std::cout << "[INFO] No chromosomes provided!" << std::endl;
-        chromosomes = permitted_chromosomes;
+        chromosomes_vec.assign(permitted_chromosomes.begin(), permitted_chromosomes.end());
+        chromosomes_set = permitted_chromosomes;
+
     }
 
     else
@@ -34,46 +37,33 @@ Parser::Parser(std::string path_, std::vector<std::string> chromosomes_, int cor
         for (auto chr : chromosomes_)
         {
             // add chr to list of whitelisted chromosomes
-            if (std::find(permitted_chromosomes.begin(), permitted_chromosomes.end(), chr) != permitted_chromosomes.end())
+            if (permitted_chromosomes.contains(chr))
             {
-                chromosomes.push_back(chr);
+                chromosomes_vec.push_back(chr);
+                chromosomes_set.insert(chr);
             }
         }
     }
-
 }
 
-// function to prevent using splice junctions for chromosomes that weren't parsed
-bool Parser::chr_permitted(const std::string& chr) const
-{
-    for (auto& provided_chr : this->chromosomes)
-    {
-        if (chr == provided_chr)
-        {
-            return true;
-        }
-    }
-
-    return false;
-}
 // fill vector with coverage value per bp (since different bedgraphs have different binning intervals)
 void Parser::compute_per_base_coverage(const BedGraphRow& row, std::unordered_map<std::string, std::vector<double>>& per_base_coverage)
 {
     // row.end is NOT inclusive
-    unsigned int position = row.end - row.start; //for just one nt, row.start = 22, row.end = 23 -> position = 1
-    do
+    unsigned int bin_length = row.length ? row.length : static_cast<unsigned int>(row.end - row.start);
+    if (bin_length == 0)
     {
-        // if (row.length < 10)
-        //     std::cout << "row coverage = " << row.coverage << std::endl;
-        per_base_coverage[row.chrom].push_back(row.coverage);
-        position--;
+        std::cout << "[ERROR] BedGraph bin with length 0 (start = end) provided!" << std::endl;
+        return;
     }
-    while (position > 0);
+
+    auto& dest = per_base_coverage[row.chrom];
+    dest.insert(dest.end(), bin_length, row.coverage); // insert bin coverage for each individual bp
 
 }
 
 // parse relevant chromosomes of a bedgraph file
-std::vector<BedGraphRow> Parser::read_bedgraph(const std::string& filename, uint64_t& library_size)
+std::vector<BedGraphRow> Parser::read_bedgraph(const std::string& filename, uint64_t& library_size) const
 {
     std::vector<BedGraphRow> bedgraph; // stores the full bedgraph of one sample, organized by rows (bins) with the same coverage
     //std::cout << "[FILE] " << filename << std::endl;
@@ -93,7 +83,7 @@ std::vector<BedGraphRow> Parser::read_bedgraph(const std::string& filename, uint
         BedGraphRow row = BedGraphRow();
         iss >> row.chrom >> row.start >> row.end >> row.coverage;
         // check if the row is part of the chromosome list passed by the user
-        if (std::find(chromosomes.begin(), chromosomes.end(), row.chrom) != chromosomes.end()){
+        if (chromosomes_set.contains(row.chrom)){
             // calculate total number of reads that map to this bp interval
             row.length = row.end - row.start;
             // end is not inclusive, since row1.end == row2.start of the next row
@@ -199,9 +189,9 @@ void Parser::read_mm(std::string filename) {
 
             // find the rail_id based on the mm_id --> only add sj_id if the mm_id is part of the samples
 
-            // add count if the mm_id was found and if the chr is meant to be used
-
-            if (mm_ids.contains(mm_id) && this->chr_permitted(rr_all_sj[sj_id - 1].chrom)) // rail_id_to_mm_id has <rail_id, mm_id> mapping
+            // add count if the mm_id was found
+            // check in chromosomes_set to prevent using splice junctions on chromosomes that weren't parsed
+            if (mm_ids.contains(mm_id) && chromosomes_set.contains(rr_all_sj[sj_id - 1].chrom)) // rail_id_to_mm_id has <rail_id, mm_id> mapping
             {
                 // store vector of sj_ids for each chromosome
                 mm_chrom_sj[rr_all_sj[sj_id - 1].chrom].push_back(sj_id);
@@ -284,7 +274,7 @@ void Parser::fill_up(std::vector<std::string> bedgraph_files)
 }
 
 void Parser::read_all_bedgraphs(std::vector<std::string> bedgraph_files, unsigned int nof_threads) {
-    std::cout << "[INFO] Using " << nof_threads << " threads" << std::endl;
+    std::cout << "[INFO] Using " << nof_threads + 1 << " threads for parsing" << std::endl;
     // reserve space
     all_bedgraphs.resize(bedgraph_files.size());
     all_per_base_coverages.resize(bedgraph_files.size());
@@ -312,7 +302,7 @@ void Parser::read_all_bedgraphs(std::vector<std::string> bedgraph_files, unsigne
                 unsigned int i = next_index++; //passes index, then does post-increment!
                 if (i >= bedgraph_files.size()) break;
 
-                // scope to ensure print statement is not shuffled from concurrency
+                // mutex to ensure print statement is not shuffled from concurrency
                 {
                     std::lock_guard<std::mutex> lock(mutex);
                     std::cout << "[FILE] Processing BedGraph File " << bedgraph_files.at(i) << std::endl;

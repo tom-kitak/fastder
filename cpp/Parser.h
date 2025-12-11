@@ -25,12 +25,11 @@ public:
 
     // read in individual file types
     void read_all_bedgraphs(std::vector<std::string> bedgraph_files, unsigned int nof_threads);
-    std::vector<BedGraphRow> read_bedgraph(const std::string& filename, uint64_t& library_size);
+    std::vector<BedGraphRow> read_bedgraph(const std::string& filename, uint64_t& library_size) const;
     void read_mm(std::string filename);
     void read_rr(std::string filename);
     void read_url_csv(std::string filename);
     void fill_up(std::vector<std::string> bedgraph_files);
-    [[nodiscard]] bool chr_permitted(const std::string& chr) const;
 
     static void compute_per_base_coverage(const BedGraphRow& row, std::unordered_map<std::string, std::vector<double>>& per_base_coverage);
 
@@ -38,7 +37,8 @@ public:
     int user_cores;
     const int min_cores = 3;
     std::string path;
-    std::vector<std::string> chromosomes;
+    std::vector<std::string> chromosomes_vec; // for fast iteration
+    std::unordered_set<std::string> chromosomes_set; // for fast check if chromosome is included
     std::vector<std::vector<BedGraphRow>> all_bedgraphs; //TODO maybe change to unordered map with key = sample id, value = bedgraph of the sample?
     std::vector<std::unordered_map<std::string, std::vector<double>>> all_per_base_coverages; //NOT ordered by chromosomes
     // store RR info for each splice junctions
@@ -53,7 +53,7 @@ public:
     std::unordered_set<unsigned int> mm_ids; // <mm_id, rail_id> mapping for fast mm_id lookup
 
 
-    const std::vector<std::string> permitted_chromosomes =  {
+    const std::unordered_set<std::string> permitted_chromosomes =  {
         "chr1",
          "chr2",
          "chr3",
