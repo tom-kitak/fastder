@@ -3,6 +3,10 @@ name: build_and_test
 on:
   pull_request:
   workflow_dispatch:
+  push:
+    branches:
+      - build
+      - imallona
 
 jobs:
   build-and-test:
@@ -81,7 +85,7 @@ jobs:
     - name: Debian package as artifact
       uses: actions/upload-artifact@v4
       with:
-        name: fastder
+        name: fastder-deb
         path: build/*.deb
         # files: build/*.deb
 
@@ -96,5 +100,5 @@ jobs:
     - name: Conda package as artifact
       uses: actions/upload-artifact@v4
       with:
-        name: conda-package
-        path: /usr/share/miniconda3/conda-bld/*/*.tar.bz2
+        name: fastder-conda
+        path: /usr/share/miniconda/envs/build-env/conda-bld/linux-64/*.conda
