@@ -376,8 +376,12 @@ void Parser::read_all_bedgraphs(std::vector<std::string> bedgraph_files, unsigne
                 }
 
                 // add to matrix of all bedgraphs per sample
-                all_bedgraphs[i] = std::move(sample_bedgraph);
-                all_per_base_coverages[i] = std::move(per_base_coverage);
+                {
+                    std::lock_guard<std::mutex> lock(mutex);
+                    all_bedgraphs[i] = std::move(sample_bedgraph);
+                    all_per_base_coverages[i] = std::move(per_base_coverage);
+                }
+
             }
         });
     }

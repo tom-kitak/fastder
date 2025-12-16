@@ -2,7 +2,7 @@
 // Created by martinalavanya on 20.10.25.
 //
 
-#include <future>
+#include <cassert>
 #include <Integrator.h>
 
 // constructor
@@ -44,89 +44,68 @@ bool Integrator::sj_too_far_back(const uint64_t most_recent_er_end, const uint64
 
 void Integrator::stitch_up(std::unordered_map<std::string, std::vector<BedGraphRow>>& expressed_regions, const std::map<std::string, std::vector<uint64_t>>& mm_chrom_sj, const std::vector<SJRow>& rr_all_sj)
 {
-    std::unordered_map<std::string, std::future<std::vector<StitchedER>>> workers;
-    workers.reserve(mm_chrom_sj.size()); //pre-allocate for workers
-    std::atomic_int max_stitched_ers{0};
-
     // iterate over chromosomes and sj_ids -> sjs.first = chrom, sjs.second = vector<sj_id>
     for (auto& sjs : mm_chrom_sj)
     {
         std::cout << "[INFO] Stitching chromosome " << sjs.first << std::endl;
         std::string chrom = sjs.first;
-        if (expressed_regions.at(chrom).empty()) continue; // if no expressed regions were identified for this chromosome, move to the next one
-        // stitch together in parallel
-        workers[chrom] = std::async(std::launch::async, [&, chrom]
+        StitchedER er1 = StitchedER(expressed_regions.at(chrom).at(0), 0); // define the first StitchedER, currently consisting of 1 ER
+        stitched_ERs.emplace_back(er1);
+        auto current_sj_id = sjs.second.begin(); // iterator over the vector of sj_id
+
+        int max_stitched_ers = 0;
+        int nof_stitched_ers = 0;
+        // iterate over expressed regions starting with region 2 (since region 1 was already appended)
+        for (int i = 1; i < expressed_regions.at(chrom).size(); ++i)
         {
-            int nof_stitched_ers = 0;
-            StitchedER er1 = StitchedER(expressed_regions.at(chrom).at(0), 0); // define the first StitchedER, currently consisting of 1 ER
-            std::vector<StitchedER> stitched_ERs_partial;
-            stitched_ERs_partial.emplace_back(er1);
-            auto current_sj_id = sjs.second.begin(); // iterator over the vector of sj_id
+            const auto& expressed_region = expressed_regions[chrom][i];
+            //only compare if we aren't at the last SJ yet
+            if (current_sj_id != sjs.second.end()){
+                StitchedER& current_stitched_er = stitched_ERs.back(); // this is one expressed region right now
 
-            // iterate over expressed regions starting with region 2 (since region 1 was already appended)
-            for (int i = 1; i < expressed_regions.at(chrom).size(); ++i)
-            {
-                const auto& expressed_region = expressed_regions[chrom][i];
-                //only compare if we aren't at the last SJ yet
-                if (current_sj_id != sjs.second.end()){
-                    StitchedER& current_stitched_er = stitched_ERs_partial.back();
+                // skip ahead to SJ with coordinates that line up with the most recent ER
+                while (current_sj_id != sjs.second.end()
+                    && (current_stitched_er.end > rr_all_sj[*current_sj_id - 1].start && !within_threshold(current_stitched_er.end, rr_all_sj[*current_sj_id - 1].start))
+                    && rr_all_sj[*current_sj_id - 1].chrom == chrom)
+                {
+                    ++current_sj_id;
+                }
+                // make sure to never dereference the end() pointer
+                if (current_sj_id == sjs.second.end())
+                {
+                    --current_sj_id;
+                }
+                // get rr_all_sj, which is a vector of SJRows
+                if (is_similar(current_stitched_er, expressed_region, rr_all_sj[*current_sj_id - 1]))
+                {
+                    uint64_t sj_length = expressed_region.start - expressed_regions[chrom][current_stitched_er.er_ids.back()].end; // always use ER coordinates since a small mismatch of SJ and ER coordinates is tolerated
+                    current_stitched_er.append(-1, sj_length, 0.0);  // append the spliced region and the intron
+                    current_stitched_er.append(i, expressed_region.length, expressed_region.coverage);
+                    ++nof_stitched_ers;
+                    // move to next SJ
+                    ++current_sj_id;
 
-                    // skip ahead to SJ with coordinates that line up with the most recent ER
-                    while (current_sj_id != sjs.second.end()
-                        && (current_stitched_er.end > rr_all_sj[*current_sj_id - 1].start && !within_threshold(current_stitched_er.end, rr_all_sj[*current_sj_id - 1].start))
-                        && rr_all_sj[*current_sj_id - 1].chrom == chrom)
+                    // find maximum number of ERs that were stitched together
+                    if (max_stitched_ers < nof_stitched_ers)
                     {
-                        ++current_sj_id;
-                    }
-                    // make sure to never dereference the end() pointer
-                    if (current_sj_id == sjs.second.end())
-                    {
-                        --current_sj_id;
-                    }
-                    // get rr_all_sj, which is a vector of SJRows
-                    if (is_similar(current_stitched_er, expressed_region, rr_all_sj[*current_sj_id - 1]))
-                    {
-                        uint64_t sj_length = expressed_region.start - expressed_regions[chrom][current_stitched_er.er_ids.back()].end; // always use ER coordinates since a small mismatch of SJ and ER coordinates is tolerated
-                        current_stitched_er.append(-1, sj_length, 0.0);  // append the spliced region and the intron
-                        current_stitched_er.append(i, expressed_region.length, expressed_region.coverage);
-                        ++nof_stitched_ers;
-                        // move to next SJ
-                        ++current_sj_id;
-
-                        // find maximum number of ERs that were stitched together
-                        if (max_stitched_ers < nof_stitched_ers)
-                        {
-                            max_stitched_ers = nof_stitched_ers;
-                        }
-                    }
-                    // current ER doesn't belong to any existing ERs --> start a new ER
-                    else
-                    {
-                        nof_stitched_ers = 1; // reset counter
-                        stitched_ERs_partial.emplace_back(StitchedER(expressed_region, i));
+                        max_stitched_ers = nof_stitched_ers;
                     }
                 }
-                // no more splice junctions left, so each remaining expressed region forms its own StitchedER
+                // current ER doesn't belong to any existing ERs --> start a new ER
                 else
                 {
-                    stitched_ERs_partial.emplace_back(StitchedER(expressed_region, i));
+                    nof_stitched_ers = 1; // reset counter
+                    stitched_ERs.emplace_back(StitchedER(expressed_region, i));
                 }
             }
-             return stitched_ERs_partial;
-                });// end of parallelization
-        } // end of chr loop
-
-        // join threads
-        for (auto& pair : mm_chrom_sj)
-        {
-            std::string chr = pair.first;
-            std::vector<StitchedER> stitched_ERs_partial_result = workers[chr].get();
-            stitched_ERs.insert(stitched_ERs.end(), stitched_ERs_partial_result.begin(), stitched_ERs_partial_result.end()); //get result
-            std::cout << "[INFO] Finished stitching ERs for " << chr << std::endl;
-
+            // no more splice junctions left, so each remaining expressed region forms its own StitchedER
+            else
+            {
+                stitched_ERs.emplace_back(StitchedER(expressed_region, i));
+            }
         }
         std::cout << "[INFO] Longest stitched ER contains " << max_stitched_ers << " ERs" << std::endl;
-
+    }
 }
 
 
@@ -148,7 +127,7 @@ void Integrator::write_to_gtf(const std::string& output_path)
         std::to_string(unsigned(ymd.day()));
 
     // write headers
-    out << "#description: expressed region annotation of genome based on bedgraph and MM / RR splice junction information." << std::endl;
+    out << "#description: expressed region annotation of the genome based on BedGraph and MM / RR splice junction information." << std::endl;
     out << "#provider: FASTDER" << std::endl;
     out << "#contact: martina.lavanya@gmail.com" << std::endl;
     out << "#format: gtf" << std::endl;
