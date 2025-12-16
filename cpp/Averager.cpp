@@ -53,7 +53,10 @@ void Averager::compute_mean_coverage(std::vector<std::unordered_map<std::string,
         std::string chrom = pair.first;
         mean_coverage[chrom] = workers[chrom].get(); //get result
         std::cout << "[INFO] Computed mean for " << chrom << " with #bp = " << all_per_base_coverages[0].at(chrom).size() << std::endl;
-        assert(all_per_base_coverages[0].at(chrom).size() == mean_coverage[chrom].size());
+        if (all_per_base_coverages[0].at(chrom).size() != mean_coverage[chrom].size())
+        {
+            std::cerr << "[ERROR] Mean coverage computation is incomplete.";
+        }
     }
 }
 
