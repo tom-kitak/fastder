@@ -13,8 +13,6 @@
 #include <chrono>
 #include <thread>
 int main(int argc, char* argv[]) {
-    // unsigned int max_threads = std::thread::hardware_concurrency();
-    // std::cout << max_threads << " threads" << std::endl;
 	auto start = std::chrono::high_resolution_clock::now();
     std::vector<std::string> chromosomes;
     // default values (if not provided by user)

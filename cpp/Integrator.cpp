@@ -64,7 +64,6 @@ void Integrator::stitch_up(std::unordered_map<std::string, std::vector<BedGraphR
             stitched_ERs_partial.emplace_back(er1);
             auto current_sj_id = sjs.second.begin(); // iterator over the vector of sj_id
 
-
             // iterate over expressed regions starting with region 2 (since region 1 was already appended)
             for (int i = 1; i < expressed_regions.at(chrom).size(); ++i)
             {

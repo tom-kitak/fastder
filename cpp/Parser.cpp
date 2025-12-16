@@ -78,12 +78,59 @@ std::vector<BedGraphRow> Parser::read_bedgraph(const std::string& filename, uint
     // iterate over lines
     while (std::getline(file, line))
     {
-        // read in line by line with std::from_chars()
+        if (line.empty()) return bedgraph;
 
-        std::istringstream iss(line);
-        //std::cout << line  << std::endl;
         BedGraphRow row = BedGraphRow();
-        iss >> row.chrom >> row.start >> row.end >> row.coverage;
+        // read in line by line with std::from_chars()
+        const char* p = line.data();
+        const char* end = p + line.size(); // end of the line
+
+        while (p < end &&  (*p == ' ' || *p == '\t')) p++; // skip ws or tab at the beginning
+        const char* start = p;
+        while (p < end && (*p != ' ' && *p != '\t')) ++p;
+        std::string_view chrom(start, p - start);
+        // column 1 has entries like chr1 or chr21 --> must have length 4 or 5
+
+        if (chrom.size() != 4 && chrom.size() != 5) {
+            std::cout << "[ERROR] Malformed chromosome entry in Bedgraph line: " << line << "\n";
+            continue;
+        }
+        row.chrom = std::string(chrom);
+
+        // skip whitespace and tab
+        while (p < end &&  (*p == ' ' || *p == '\t')) p++;
+
+        std::from_chars_result res1 = std::from_chars(p, end, row.start);
+        if (res1.ec != std::errc{})
+        {
+            std::cout << "[ERROR] Malformed start position in Bedgraph file: " << line << std::endl;
+            continue;
+        }
+        p = res1.ptr;
+
+        // skip whitespace and tab
+        while (p < end &&  (*p == ' ' || *p == '\t')) p++;
+
+        std::from_chars_result res2 = std::from_chars(p, end, row.end);
+        if (res2.ec != std::errc{})
+        {
+            std::cout << "[ERROR] Malformed end position in Bedgraph file: " << line << std::endl;
+            continue;
+        }
+        p = res2.ptr;
+
+        // skip whitespace and tab
+        while (p < end &&  (*p == ' ' || *p == '\t')) p++;
+
+        int coverage_as_int; //std::from_chars only exists for integers and initially, column 4 is of type integer in Bedgraphs
+        std::from_chars_result res3 = std::from_chars(p, end, coverage_as_int);
+        if (res3.ec != std::errc{})
+        {
+            std::cout << "[ERROR] Malformed coverage entry in Bedgraph file: " << line << std::endl;
+            continue;
+        }
+        row.coverage = static_cast<float>(coverage_as_int);
+
         // check if the row is part of the chromosome list passed by the user
         if (chromosomes_set.contains(row.chrom)){
             // calculate total number of reads that map to this bp interval
@@ -202,7 +249,6 @@ void Parser::read_mm(std::string filename) {
                 std::cout << "[ERROR] Malformed line in MM file: " << line << std::endl;
                 continue;
             }
-            p = res2.ptr;
 
             // add count if the mm_id corresponds to any of the provided samples
             // check in chromosomes_set to prevent using splice junctions on chromosomes that weren't parsed
@@ -415,7 +461,7 @@ void Parser::search_directory() {
     std::thread mm_thread(&Parser::read_mm, this, mm_file);
 
     // parse all bedgraph files concurrently
-    //read_all_bedgraphs(bedgraph_files, nof_threads);
+    read_all_bedgraphs(bedgraph_files, nof_threads);
 
     // stop MM thread
     mm_thread.join();
