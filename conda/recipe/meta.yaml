@@ -21,4 +21,4 @@ requirements:
 about:
   home: "https://github.com/martina-lavanya/fastder"
   license: "MIT"
-  summary: "fastder, a faster expressed regions finder for RNA-seq"
+  summary: "fastder, a fast, agnostic, splice-junction-based tool for the detection of expressed regions in RNA-seq data"
