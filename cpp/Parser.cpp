@@ -27,7 +27,7 @@ Parser::Parser(std::string path_, std::vector<std::string> chromosomes_, int cor
     // default: use all chromosomes
     if (chromosomes_.empty())
     {
-        std::cout << "[INFO] No chromosomes provided!" << std::endl;
+        std::cout << "[INFO] User specified no chromosomes! fastder will use all chromosomes." << std::endl;
         chromosomes_vec.assign(permitted_chromosomes.begin(), permitted_chromosomes.end());
         chromosomes_set = permitted_chromosomes;
 
@@ -45,6 +45,13 @@ Parser::Parser(std::string path_, std::vector<std::string> chromosomes_, int cor
             }
         }
     }
+    // if only invalid chromosomes were provided
+    if (chromosomes_vec.empty() || chromosomes_set.empty())
+    {
+        std::cout << "[INFO] User specified no valid chromosomes! fastder will use all chromosomes." << std::endl;
+        chromosomes_vec.assign(permitted_chromosomes.begin(), permitted_chromosomes.end());
+        chromosomes_set = permitted_chromosomes;
+    }
 }
 
 // fill vector with coverage value per bp (for mean coverage computation later on -> different bedgraphs have different binning intervals)
@@ -54,7 +61,7 @@ void Parser::compute_per_base_coverage(const BedGraphRow& row, std::unordered_ma
     unsigned int bin_length = row.length ? row.length : static_cast<unsigned int>(row.end - row.start);
     if (bin_length == 0)
     {
-        std::cout << "[ERROR] BedGraph bin with length 0 (start = end) provided!" << std::endl;
+        std::cerr << "[ERROR] BedGraph bin with length 0 (start = end) provided!" << std::endl;
         return;
     }
 
@@ -103,7 +110,7 @@ std::vector<BedGraphRow> Parser::read_bedgraph(const std::string& filename, uint
         std::from_chars_result res1 = std::from_chars(p, end, row.start);
         if (res1.ec != std::errc{})
         {
-            std::cout << "[ERROR] Malformed start position in Bedgraph file: " << line << std::endl;
+            std::cerr << "[ERROR] Malformed start position in Bedgraph file: " << line << std::endl;
             continue;
         }
         p = res1.ptr;
@@ -114,7 +121,7 @@ std::vector<BedGraphRow> Parser::read_bedgraph(const std::string& filename, uint
         std::from_chars_result res2 = std::from_chars(p, end, row.end);
         if (res2.ec != std::errc{})
         {
-            std::cout << "[ERROR] Malformed end position in Bedgraph file: " << line << std::endl;
+            std::cerr << "[ERROR] Malformed end position in Bedgraph file: " << line << std::endl;
             continue;
         }
         p = res2.ptr;
@@ -126,7 +133,7 @@ std::vector<BedGraphRow> Parser::read_bedgraph(const std::string& filename, uint
         std::from_chars_result res3 = std::from_chars(p, end, coverage_as_int);
         if (res3.ec != std::errc{})
         {
-            std::cout << "[ERROR] Malformed coverage entry in Bedgraph file: " << line << std::endl;
+            std::cerr << "[ERROR] Malformed coverage entry in Bedgraph file: " << line << std::endl;
             continue;
         }
         row.coverage = static_cast<float>(coverage_as_int);
@@ -155,7 +162,7 @@ void Parser::read_rr(std::string filename)
     std::ifstream file(filename);
     if (!file.is_open())
     {
-        std::cerr << "Error opening file " << filename << std::endl;
+        std::cerr << "[ERROR] Could not open .rr file " << filename << std::endl;
     }
     std::string line;
 
@@ -197,7 +204,7 @@ void Parser::read_mm(std::string filename) {
 
         if (!file.is_open())
         {
-            std::cerr << "[ERROR] could not open file " << filename << std::endl;
+            std::cerr << "[ERROR] could not open MM file " << filename << std::endl;
         }
         std::string line;
         bool seen_header = false;
@@ -210,7 +217,8 @@ void Parser::read_mm(std::string filename) {
         {
             ++count_lines;
             // read in line by line
-            if (line[0] == '%' || line.empty()) continue;
+            if (line.empty()) return;
+            if (line[0] == '%') continue;
             if (!seen_header) {
                 std::istringstream iss(line);
                 // header: 9484210	2931	699368828, actual #lines = 699368831
@@ -235,7 +243,7 @@ void Parser::read_mm(std::string filename) {
             std::from_chars_result res1 = std::from_chars(p, end, sj_id);
             if (res1.ec != std::errc{})
             {
-                std::cout << "[ERROR] Malformed line in MM file: " << line << std::endl;
+                std::cerr << "[ERROR] Malformed line in MM file: " << line << std::endl;
                 continue;
             }
             p = res1.ptr;
@@ -246,7 +254,7 @@ void Parser::read_mm(std::string filename) {
             std::from_chars_result res2 = std::from_chars(p, end, mm_id);
             if (res2.ec != std::errc{})
             {
-                std::cout << "[ERROR] Malformed line in MM file: " << line << std::endl;
+                std::cerr << "[ERROR] Malformed line in MM file: " << line << std::endl;
                 continue;
             }
 
@@ -281,7 +289,7 @@ void Parser::read_url_csv(std::string filename)
         // read in line by line
         std::istringstream iss(line);
 
-        // invalid or header line
+        // invalid or header line --> the first line is always skipped
         if (line.empty() || line == "rail_id,external_id,study,BigWigURL" || first_line)
         {
             first_line = false;
@@ -323,7 +331,7 @@ void Parser::fill_up(std::vector<std::string> bedgraph_files)
         }
         else
         {
-            std::cout << "[ERROR] File " << bedgraph_file << " has no rail_id! " << std::endl;
+            std::cerr << "[ERROR] File " << bedgraph_file << " has no rail_id! Check that the external_id is contained in the sample file name. " << std::endl;
         }
     }
 }
@@ -339,12 +347,6 @@ void Parser::read_all_bedgraphs(std::vector<std::string> bedgraph_files, unsigne
     threads.reserve(nof_threads);
     // mutex to write to file
     static std::mutex mutex;
-
-    // threads sanity check
-    if (nof_threads > bedgraph_files.size()) {
-        std::cerr << "[ERROR] Too many threads! Quitting...";
-        return;
-    }
 
     // atomic number for index --> never shared, so each index is used exactly once
     // sequence of samples within all_bedgraphs is irrelevant

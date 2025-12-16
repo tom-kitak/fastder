@@ -16,7 +16,7 @@ int main(int argc, char* argv[]) {
 	auto start = std::chrono::high_resolution_clock::now();
     std::vector<std::string> chromosomes;
     // default values (if not provided by user)
-    int position_tolerance = 10;
+    int position_tolerance = 5;
     int min_length = 10;
     double coverage_tolerance = 0.8;
     double min_coverage = 0.05;
@@ -37,16 +37,16 @@ int main(int argc, char* argv[]) {
                 << "Options:\n"
                 << "  --dir <path> ...             [REQUIRED] Relative path from build directory to file directory. \n"
                 << "                               Example: --dir ../../data/test_exon_skipping \n\n"
-                << "  --chr <chr1> <chr2> ...      List of chromosomes to process. Default = ALL\n"
-                << "                               Example: --chr chr1 chr2 chr3\n\n"
+                << "  --chr <chr1> <2> ...         List of chromosomes to process. Default = ALL\n"
+                << "                               Example: --chr chr1 chr2 or --chr 1 2 \n\n"
                 << "  --min-coverage <float>       Coverage threshold to qualify as an expressed region (ER), in [CPM]. \n"
                    "                               Normalization is done in-place by library size. \n"
-                   "                               Default = 0.25 CPM.\n"
+                   "                               Default = 0.05 CPM.\n"
                 << "                               Example: --min-coverage 0.25\n\n"
                 << "  --position-tolerance <int>   Maximum permitted position deviation of splice junction and ER coordinates, in [bp]. Default = 5 bp\n"
                 << "                               Example: --position-tolerance 5\n\n"
-                << "  --coverage-tolerance <float> Permitted coverage deviation within a stitched ER, as a proportion (e.g. 0.1 = 10 %). Default = 0.1\n"
-                << "                               Example: --coverage-tolerance 0.1\n\n"
+                << "  --coverage-tolerance <float> Permitted coverage deviation within a stitched ER, as a proportion (e.g. 0.1 = 10 %). Default = 0.7\n"
+                << "                               Example: --coverage-tolerance 0.8\n\n"
                 << "  --cores <int>                Number of cores that fastder may use. Default = 4\n"
                 << "                               Example: --cores 8\n\n"
                 << "Example:\n"
@@ -65,7 +65,12 @@ int main(int argc, char* argv[]) {
             // the next argument starts with --
             while (i < argc && std::string(argv[i]).rfind("--", 0) == std::string::npos)
             {
-                chromosomes.push_back(argv[i]);
+                std::string chrom = argv[i];
+                if (chrom.find("chr") == std::string::npos)
+                {
+                    chrom = "chr" + chrom; // add "chr" prefix if user passes --chr 1 2 3
+                }
+                chromosomes.push_back(chrom);
                 ++i;
             }
             // decrement i again
@@ -108,7 +113,7 @@ int main(int argc, char* argv[]) {
     // exit if no directory is provided
     if (directory.empty())
     {
-        std::cout << "[ERROR] No directory specified! Quitting...";
+        std::cerr << "[ERROR] No directory with input files specified! Quitting..." << std::endl;
         return 1;
     }
 
@@ -122,7 +127,7 @@ int main(int argc, char* argv[]) {
     std::cout << "[INFO] Parsing took " << elapsed_parsing.count() << " seconds\n";
 
     // get mean coverage vector
-    Averager averager;
+    Averager averager(cores);
     averager.compute_mean_coverage(parser.all_per_base_coverages);
 
     averager.find_ERs(min_coverage, min_length);
@@ -160,7 +165,8 @@ int main(int argc, char* argv[]) {
 
 
     // convert to GTF format
-    std::string output_path = directory + "/FASTDER_RESULT_POS_TOL_" + std::to_string(position_tolerance) + "_MIN_COV_" + std::to_string(min_coverage) + "_COV_TOL_" + std::to_string(coverage_tolerance) + "_MIN_LENGTH_" + std::to_string(min_length) + ".gtf";
+    std::string prefix = (directory.back() == '/') ? "FASTDER_RESULT_POS_TOL_" : "/FASTDER_RESULT_POS_TOL_";
+    std::string output_path = directory + prefix + std::to_string(position_tolerance) + "_MIN_COV_" + std::to_string(min_coverage) + "_COV_TOL_" + std::to_string(coverage_tolerance) + "_MIN_LENGTH_" + std::to_string(min_length) + ".gtf";
     integrator.write_to_gtf(output_path);
 
     // print duration

@@ -31,6 +31,11 @@ double StitchedER::get_avg_coverage() const
             full_length += er.first;
         }
     }
+    if (full_length == 0)
+    {
+        std::cerr << "[ERROR] All stitched ERs have a combined length of 0. This shouldn't happen..." << std::endl;
+        return sum;
+    }
     return sum / full_length;
 }
 

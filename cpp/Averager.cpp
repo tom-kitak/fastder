@@ -14,50 +14,72 @@
 #include "Averager.h"
 #include <future>
 
+Averager::Averager(int threads_)
+{
+    nof_threads = threads_;
+}
 
 //compute mean coverage vector across samples
 void Averager::compute_mean_coverage(std::vector<std::unordered_map<std::string, std::vector<double>>>& all_per_base_coverages)
 {
 
-    // define workers --> use one thread per chromosome
-    std::unordered_map<std::string, std::future<std::vector<double>>> workers;
-    // workers.reserve(all_per_base_coverages.size()); //pre-allocate space for workers
+    if (all_per_base_coverages.empty())
+    {
+        std::cerr << "[ERROR] No per-base coverages were computed...";
+        return;
+    }
+
+    // reserve storage
+    mean_coverage.reserve(all_per_base_coverages[0].size());
+
+    std::vector<std::string> chroms;
+    for (auto& item : all_per_base_coverages.at(0))
+    {
+        chroms.push_back(item.first);
+    }
+
+    // store threads
+    std::vector<std::thread> threads;
+    threads.reserve(nof_threads);
+    std::atomic_int next_index{0};
 
     std::cout << "[INFO] Provided #samples = " << all_per_base_coverages.size() << ", #chromosomes = "<< all_per_base_coverages[0].size() << std::endl;
 
     // parallel iteration over chromosomes. pair.first = chromosome, pair.second = vector of per base coverages of that chromosome
-    for (auto& item : all_per_base_coverages.at(0))
+    for (unsigned int t = 0; t < nof_threads; ++t)
     {
-        std::string chrom = item.first;
-        workers[chrom] = std::async(std::launch::async, [&, chrom]{
-        std::vector<double> chrom_mean_vector;
-        // iterate over values for each chromosome
-        for (unsigned int i = 0; i < all_per_base_coverages[0][chrom].size(); i++)
+        // capture everything
+        threads.emplace_back([&]()
         {
-            double sum = 0.0;
-            // iterate over all positions i across samples j
-            for (unsigned int j = 0; j < all_per_base_coverages.size(); j++)
+            while (true)
             {
-                // all_per_base_coverages[sample_nr][chromosome][base_pair_position]
-                sum += all_per_base_coverages[j][chrom][i]; //sample j, chromosome chrom, position i
-            }
-            chrom_mean_vector.push_back(sum / all_per_base_coverages.size()); // (sum over coverage at bp i) / (#nof samples)
-        }
-            return chrom_mean_vector;
-        });
+                unsigned int idx = next_index++;
+                if (idx >= chroms.size()) break; // leave loop after reaching the last chromosome
+                const std::string chrom = chroms[idx];
+                std::vector<double> chrom_mean_vector;
 
+                chrom_mean_vector.reserve(all_per_base_coverages[0].at(chrom).size());
+
+                // compute mean coverage across samples
+                for (unsigned int i = 0; i < all_per_base_coverages[0][chrom].size(); i++)
+                {
+                    double sum = 0.0;
+                    // iterate over all positions i across samples j
+                    for (unsigned int j = 0; j < all_per_base_coverages.size(); j++)
+                    {
+                        // all_per_base_coverages[sample_nr][chromosome][base_pair_position]
+                        sum += all_per_base_coverages[j][chrom][i]; //sample j, chromosome chrom, position i
+                    }
+                    chrom_mean_vector.push_back(sum / all_per_base_coverages.size()); // (sum over coverage at bp i) / (#nof samples)
+                }
+                mean_coverage[chrom] = std::move(chrom_mean_vector);
+            }
+        });
     }
     // join threads
-    for (auto& pair : all_per_base_coverages.at(0))
-    {
-        std::string chrom = pair.first;
-        mean_coverage[chrom] = workers[chrom].get(); //get result
-        std::cout << "[INFO] Computed mean for " << chrom << " with #bp = " << all_per_base_coverages[0].at(chrom).size() << std::endl;
-        if (all_per_base_coverages[0].at(chrom).size() != mean_coverage[chrom].size())
-        {
-            std::cerr << "[ERROR] Mean coverage computation is incomplete.";
+        for (auto& thr: threads) {
+            thr.join();
         }
-    }
 }
 
 // identify ERs with coverage > threshold and length > min_length bp
@@ -102,12 +124,9 @@ void Averager::find_ERs(double threshold, int min_length)
                     if ((i - start) > min_length)
                     {
                         double current_avg = current_sum / (i - start);
-                        //++count;
-                        assert(count == i - start);
-                        //std::cout << "count: " << count << ", len = " << i - start << std::endl;
-                        BedGraphRow expressed_region = BedGraphRow(chrom, start, i, current_avg);
 
-                        //expressed_region.print();
+                        // assert(count == i - start);
+                        BedGraphRow expressed_region = BedGraphRow(chrom, start, i, current_avg);
                         chrom_expressed_regions.push_back(expressed_region);
 
                     }

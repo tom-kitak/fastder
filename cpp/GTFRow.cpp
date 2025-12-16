@@ -41,7 +41,7 @@ void GTFRow::change_feature(std::string ftr, unsigned int id, unsigned int exon_
     }
     else
     {
-        std::cout << "[ERROR] unknown feature";
+        std::cerr << "[ERROR] Unknown feature " << ftr << std::endl;
     }
 
     // add exon number only if it's an exon

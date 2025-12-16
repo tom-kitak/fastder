@@ -45,7 +45,7 @@ public:
     std::vector<std::pair<unsigned int, std::string>> rail_id_to_ext_id; // <rail_id, external_id> for all samples in the dataset
     // later sorted by rail_id to receive rank (= mm_id)
 
-    std::unordered_set<unsigned int> mm_ids; // <mm_id, rail_id> mapping for fast mm_id lookup
+    std::unordered_set<unsigned int> mm_ids; // unordered map for fast mm_id lookup
 
 
     const std::unordered_set<std::string> permitted_chromosomes =  {

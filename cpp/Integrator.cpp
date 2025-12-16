@@ -2,7 +2,6 @@
 // Created by martinalavanya on 20.10.25.
 //
 
-#include <cassert>
 #include <future>
 #include <Integrator.h>
 
@@ -54,7 +53,7 @@ void Integrator::stitch_up(std::unordered_map<std::string, std::vector<BedGraphR
     {
         std::cout << "[INFO] Stitching chromosome " << sjs.first << std::endl;
         std::string chrom = sjs.first;
-
+        if (expressed_regions.at(chrom).empty()) continue; // if no expressed regions were identified for this chromosome, move to the next one
         // stitch together in parallel
         workers[chrom] = std::async(std::launch::async, [&, chrom]
         {
