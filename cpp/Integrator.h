@@ -21,8 +21,8 @@ class Integrator
     Integrator(double coverage_tolerance_, int position_tolerance_);
 
     void stitch_up(std::unordered_map<std::string, std::vector<BedGraphRow>>& expressed_regions, const std::map<std::string, std::vector<uint64_t>>& mm_chrom_sj, const std::vector<SJRow>& rr_all_sj);
-    bool within_threshold(double val1, double val2);
-    bool within_threshold(uint64_t val1, uint64_t val2);
+    bool within_threshold(double val1, double val2) const;
+    bool within_threshold(uint64_t val1, uint64_t val2) const;
     bool is_similar(const StitchedER& most_recent_er, const BedGraphRow& expressed_region, const SJRow& current_sj);
     bool sj_too_far_back(uint64_t most_recent_er_end, uint64_t sj_start);
 

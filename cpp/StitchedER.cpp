@@ -5,7 +5,7 @@
 #include "StitchedER.h"
 
 
-// initialize a new StitchedER with one ER in it
+// initialize a new StitchedER with one ER
 StitchedER::StitchedER(const BedGraphRow& expressed_region, int er_id)
 {
     chrom = expressed_region.chrom;
@@ -18,7 +18,8 @@ StitchedER::StitchedER(const BedGraphRow& expressed_region, int er_id)
 }
 
 // later change to add weight / memory
-double StitchedER::get_avg_coverage(){
+double StitchedER::get_avg_coverage() const
+{
     double sum = 0;
     unsigned int full_length = 0;
     // all_coverages: <length, coverage>
@@ -36,7 +37,6 @@ double StitchedER::get_avg_coverage(){
 // note that er_id is 0-indexed
 void StitchedER::append(int er_id, unsigned int length, double coverage)
 {
-
     er_ids.emplace_back(er_id); // -1 for spliced regions
     all_coverages.push_back({std::make_pair(length, coverage)});
     // only update avg coverage if an exon was added
@@ -45,8 +45,6 @@ void StitchedER::append(int er_id, unsigned int length, double coverage)
         across_er_coverage = this->get_avg_coverage();
         total_length += length; // only count er length
     }
-
-    //std::cout << "Adding length = " << length << " to position = " << end << std::endl ;
     end += length; // count er_length and sj_length to get the correct end position
 
 

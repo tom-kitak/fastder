@@ -16,12 +16,11 @@
 
 
 
-//compute overall mean coverage
+//compute mean coverage vector across samples
 void Averager::compute_mean_coverage(std::vector<std::unordered_map<std::string, std::vector<double>>>& all_per_base_coverages)
 {
 
     // define workers --> use one thread per chromosome
-
     std::unordered_map<std::string, std::future<std::vector<double>>> workers;
     // workers.reserve(all_per_base_coverages.size()); //pre-allocate space for workers
 
@@ -78,8 +77,6 @@ void Averager::find_ERs(double threshold, int min_length)//, std::vector<std::st
     for (auto& coverage : mean_coverage)
     {
         std::string chrom = coverage.first;
-
-        // PARALLELIZED
         workers[chrom] = std::async(std::launch::async, [&, chrom]
         {
             int start = 0;
@@ -97,7 +94,7 @@ void Averager::find_ERs(double threshold, int min_length)//, std::vector<std::st
                     //expressed_region.print();
                     chrom_expressed_regions.push_back(expressed_region);
 
-                    break; // leave loop!!
+                    break;
                 }
 
 

@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 4.0)
-project(mls)
+project(fastder)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include_directories(cpp)
 
-add_library(mls_lib
+add_library(fastder_lib
         cpp/Averager.cpp
         cpp/Averager.h
         cpp/BedGraphRow.cpp
@@ -27,10 +27,10 @@ add_library(mls_lib
 )
 
 
-add_executable(mls
+add_executable(fastder
         cpp/main.cpp
 )
-target_link_libraries(mls PRIVATE mls_lib)
+target_link_libraries(fastder PRIVATE fastder_lib)
 
 enable_testing()
 add_subdirectory(tests)

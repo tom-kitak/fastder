@@ -22,8 +22,7 @@ int main(int argc, char* argv[]) {
     int min_length = 10; //[5, 10]
     double coverage_tolerance = 0.8; //[0.
     double min_coverage = 0.05;
-    std::string directory  = "../data";
-    bool directory_provided = true;
+    std::string directory;
     int cores = 4;
 
     std::cout
@@ -37,22 +36,24 @@ int main(int argc, char* argv[]) {
     << "\n \n "
     << std::endl;
     std::cout << "Usage: fastder [options]\n\n"
-            << "Options:\n"
-            << "  --dir <path> ...             [REQUIRED] Relative path from build directory to file directory. \n"
-            << "                               Example: --dir ../../data/test_exon_skipping \n\n"
-            << "  --chr <chr1> <chr2> ...      List of chromosomes to process. Default = ALL\n"
-            << "                               Example: --chr chr1 chr2 chr3\n\n"
-            << "  --min-coverage <float> Coverage threshold to qualify as an expressed region (ER), in [CPM]. Normalization is done in-place by library size. Default = 0.25 CPM.\n"
-            << "                               Example: --min-coverage 0.25\n\n"
-            << "  --position-tolerance <int>   Maximum permitted position deviation of splice junction and ER coordinates, in [bp]. Default = 5 bp\n"
-            << "                               Example: --position-tolerance 5\n\n"
-            << "  --coverage-tolerance <float> Permitted coverage deviation between stitched ERs, as a proportion (e.g. 0.1 = 10 %). Default = 0.1\n"
-            << "                               Example: --coverage-tolerance 0.1\n\n"
-            << "  --help                       Show this help message.\n\n"
-            << "Example:\n"
-            << "  ./fastder  --dir ../../data/test_exon_skipping --chr chr1 chr2 --position-tolerance 5 "
-             "--min-coverage 0.25 --coverage-tolerance 0.1\n"
-            << std::endl;
+                << "Options:\n"
+                << "  --dir <path> ...             [REQUIRED] Relative path from build directory to file directory. \n"
+                << "                               Example: --dir ../../data/test_exon_skipping \n\n"
+                << "  --chr <chr1> <chr2> ...      List of chromosomes to process. Default = ALL\n"
+                << "                               Example: --chr chr1 chr2 chr3\n\n"
+                << "  --min-coverage <float>       Coverage threshold to qualify as an expressed region (ER), in [CPM]. Normalization is done in-place by library size. \n"
+                   "                               Default = 0.25 CPM.\n"
+                << "                               Example: --min-coverage 0.25\n\n"
+                << "  --position-tolerance <int>   Maximum permitted position deviation of splice junction and ER coordinates, in [bp]. Default = 5 bp\n"
+                << "                               Example: --position-tolerance 5\n\n"
+                << "  --coverage-tolerance <float> Permitted coverage deviation within a stitched ER, as a proportion (e.g. 0.1 = 10 %). Default = 0.1\n"
+                << "                               Example: --coverage-tolerance 0.1\n\n"
+                << "  --cores <int>                Number of cores that fastder may use. Default = 4\n"
+                << "                               Example: --cores 8\n\n"
+                << "Example:\n"
+                << "  ./fastder --chr chr1 chr2 --position-tolerance 5 "
+                 "--min-coverage 0.25 --coverage-tolerance 0.1 --cores 8\n"
+                << std::endl;
 
     // parse command-line arguments
     for (int i = 1; i < argc; i++)
@@ -97,29 +98,6 @@ int main(int argc, char* argv[]) {
         else if (arg == "--dir")
         {
             directory = argv[++i];
-            directory_provided = true;
-        }
-        else if (arg == "--help")
-        {
-            std::cout << "Usage: fastder [options]\n\n"
-                        << "Options:\n"
-                        << "  --dir <path> ...             [REQUIRED] Relative path from build directory to file directory. \n"
-                        << "                               Example: --dir ../../data/test_exon_skipping \n\n"
-                        << "  --chr <chr1> <chr2> ...      List of chromosomes to process. Default = ALL\n"
-                        << "                               Example: --chr chr1 chr2 chr3\n\n"
-                        << "  --min-coverage <float>       Coverage threshold to qualify as an expressed region (ER), in [CPM]. Normalization is done in-place by library size. \n"
-                           "                               Default = 0.25 CPM.\n"
-                        << "                               Example: --min-coverage 0.25\n\n"
-                        << "  --position-tolerance <int>   Maximum permitted position deviation of splice junction and ER coordinates, in [bp]. Default = 5 bp\n"
-                        << "                               Example: --position-tolerance 5\n\n"
-                        << "  --coverage-tolerance <float> Permitted coverage deviation within a stitched ER, as a proportion (e.g. 0.1 = 10 %). Default = 0.1\n"
-                        << "                               Example: --coverage-tolerance 0.1\n\n"
-                        << "  --help                       Show this help message.\n\n"
-                        << "Example:\n"
-                        << "  ./fastder --chr chr1 chr2 --position-tolerance 5 "
-                         "--min-coverage 0.25 --coverage-tolerance 0.1\n"
-                        << std::endl;
-
         }
         else
         {
@@ -128,9 +106,9 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    if (!directory_provided)
+    if (directory.empty())
     {
-        std::cout << "[ERROR] No working directory provided! Quitting...";
+        std::cout << "[ERROR] No directory specified! Quitting...";
         return 1;
     }
 
