@@ -89,17 +89,18 @@ void Averager::find_ERs(double threshold, int min_length)//, std::vector<std::st
             for (unsigned int i = 0; i <= mean_coverage[chrom].size(); i++)
             {
                 // append the last expressed region if it's long enough
-                if (i == mean_coverage[chrom].size() && (i - start) > min_length)
+                if (i == mean_coverage[chrom].size())
                 {
-                    //TODO last ER can be inclusive or exclusive depending on mean_coverage[chrom][i] <= threshold, but this is currently not encoded
-                    double current_avg = current_sum / (i - start);
-                    BedGraphRow expressed_region = BedGraphRow(chrom, start, i, current_avg);
-                    //expressed_region.print();
-                    chrom_expressed_regions.push_back(expressed_region);
-
+                    if ((i - start) > min_length)
+                    {
+                        //TODO last ER can be inclusive or exclusive depending on mean_coverage[chrom][i] <= threshold, but this is currently not encoded
+                        double current_avg = current_sum / (i - start);
+                        BedGraphRow expressed_region = BedGraphRow(chrom, start, i, current_avg);
+                        //expressed_region.print();
+                        chrom_expressed_regions.push_back(expressed_region);
+                    }
                     break; // leave loop!!
                 }
-
 
                 double coverage =  mean_coverage[chrom][i];
                 // coverage is less than threshold
