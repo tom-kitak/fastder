@@ -70,7 +70,7 @@ void Integrator::stitch_up(std::unordered_map<std::string, std::vector<BedGraphR
                 const auto& expressed_region = expressed_regions[chrom][i];
                 //only compare if we aren't at the last SJ yet
                 if (current_sj_id != sjs.second.end()){
-                    StitchedER& current_stitched_er = stitched_ERs_partial.back(); // this is one expressed region right now
+                    StitchedER& current_stitched_er = stitched_ERs_partial.back();
 
                     // skip ahead to SJ with coordinates that line up with the most recent ER
                     while (current_sj_id != sjs.second.end()
@@ -149,7 +149,7 @@ void Integrator::write_to_gtf(const std::string& output_path)
         std::to_string(unsigned(ymd.day()));
 
     // write headers
-    out << "#description: expressed region annotation of genome based on bigwig and MM / RR splice junction information." << std::endl;
+    out << "#description: expressed region annotation of genome based on bedgraph and MM / RR splice junction information." << std::endl;
     out << "#provider: FASTDER" << std::endl;
     out << "#contact: martina.lavanya@gmail.com" << std::endl;
     out << "#format: gtf" << std::endl;

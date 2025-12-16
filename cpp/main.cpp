@@ -39,7 +39,8 @@ int main(int argc, char* argv[]) {
                 << "                               Example: --dir ../../data/test_exon_skipping \n\n"
                 << "  --chr <chr1> <chr2> ...      List of chromosomes to process. Default = ALL\n"
                 << "                               Example: --chr chr1 chr2 chr3\n\n"
-                << "  --min-coverage <float>       Coverage threshold to qualify as an expressed region (ER), in [CPM]. Normalization is done in-place by library size. \n"
+                << "  --min-coverage <float>       Coverage threshold to qualify as an expressed region (ER), in [CPM]. \n"
+                   "                               Normalization is done in-place by library size. \n"
                    "                               Default = 0.25 CPM.\n"
                 << "                               Example: --min-coverage 0.25\n\n"
                 << "  --position-tolerance <int>   Maximum permitted position deviation of splice junction and ER coordinates, in [bp]. Default = 5 bp\n"
@@ -61,7 +62,7 @@ int main(int argc, char* argv[]) {
         if (arg == "--chr") // --chr chr1 chr2
         {
             ++i;
-            // the next argument is indicated with the --
+            // the next argument starts with --
             while (i < argc && std::string(argv[i]).rfind("--", 0) == std::string::npos)
             {
                 chromosomes.push_back(argv[i]);

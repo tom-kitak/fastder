@@ -67,7 +67,7 @@ void Parser::compute_per_base_coverage(const BedGraphRow& row, std::unordered_ma
 std::vector<BedGraphRow> Parser::read_bedgraph(const std::string& filename, uint64_t& library_size) const
 {
     std::vector<BedGraphRow> bedgraph; // stores the full bedgraph of one sample, organized by rows (bins) with the same coverage
-    //std::cout << "[FILE] " << filename << std::endl;
+
     //read in file from path
     std::ifstream file(filename);
     if (!file.is_open())
@@ -91,8 +91,8 @@ std::vector<BedGraphRow> Parser::read_bedgraph(const std::string& filename, uint
         std::string_view chrom(start, p - start);
         // column 1 has entries like chr1 or chr21 --> must have length 4 or 5
 
+        // skip line if it contains artificial chromosomes (such as chrUn_GL000218v1)
         if (chrom.size() != 4 && chrom.size() != 5) {
-            std::cout << "[ERROR] Malformed chromosome entry in Bedgraph line: " << line << "\n";
             continue;
         }
         row.chrom = std::string(chrom);
@@ -287,9 +287,8 @@ void Parser::read_url_csv(std::string filename)
             first_line = false;
             continue;
         }
-        //int rail_id;
         std::string rail_id_str, sample_id;
-        //iss >> sample_id >> rail_id; // only read in the first two tab-separated entries, ignore the rest!
+        // only read in the first two tab-separated entries, ignore the rest!
         if (std::getline(iss, rail_id_str, ',') && std::getline(iss, sample_id, ','))
         {
             //convert to integer
@@ -307,16 +306,12 @@ void Parser::fill_up(std::vector<std::string> bedgraph_files)
     //fill up rail_id_to_mm_id
     for (auto& bedgraph_file : bedgraph_files)
     {
-	    //std::cout << bedgraph_file << std::endl;
-	    //std::cout << "[" << rail_id_to_ext_id.begin()->second << "]" << std::endl;
         // add the sample and its mm_id (= the rank of the rail id across the study, so all files in total) to rail_id_to_mm
-        // [&] references all necessary variables i.e. the required context, here it's filename
+        // [&] references all necessary variables i.e. the required context (here: filename)
         auto it = std::find_if(rail_id_to_ext_id.begin(), rail_id_to_ext_id.end(), [&](auto& sample)
         {
             // search for the external_id in rail_id_to_ext_id and then obtain the rail_id
             // the external id is part of the filename for all three sources GTEX, TCGA and SRA
-            //std::cout <<" target " << sample.second << ", size =" << sample.second.size() << std::endl;
-            //std::cout <<" bedgraph file " << bedgraph_file << std::endl;
 	        sample.second.erase(std::remove(sample.second.begin(), sample.second.end(), '"'),
 	            sample.second.end());
             return bedgraph_file.find(sample.second) != std::string::npos;
@@ -370,14 +365,12 @@ void Parser::read_all_bedgraphs(std::vector<std::string> bedgraph_files, unsigne
                 uint64_t library_size = 0; // ensure that the integer type is large enough
                 std::vector<BedGraphRow> sample_bedgraph = read_bedgraph(bedgraph_files.at(i), library_size);
                 std::unordered_map<std::string, std::vector<double>> per_base_coverage;
-                //std::cout << "[INFO] Library size: " << library_size<< std::endl;
 
                 //normalize to CPM and expand rows to per base coverage (also normalized)
                 for (BedGraphRow& row : sample_bedgraph)
                 {
                     row.normalize(library_size);
                     compute_per_base_coverage(row, per_base_coverage);
-                    // row.print();
                 }
 
                 // add to matrix of all bedgraphs per sample

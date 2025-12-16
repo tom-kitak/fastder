@@ -131,14 +131,12 @@ void Averager::find_ERs(double threshold, int min_length)
 
 
 
-        //avoid using mutexes, just do single-threaded merge
+        // single-threaded merge
         // TODO later use >1 thread per chromosome
         for (auto& pair : mean_coverage)
         {
             std::string chrom = pair.first;
             expressed_regions[chrom] = workers[chrom].get(); //get result
-            //std::cout << "FINISHED MEAN COMPUTATION FOR " << chrom << " with #bp = " << all_per_base_coverages[0].at(chrom).size() << std::endl;
-            //assert(all_per_base_coverages[0].at(chrom).size() == mean_coverage[chrom].size());
         }
 
 }
