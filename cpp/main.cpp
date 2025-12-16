@@ -16,11 +16,11 @@ int main(int argc, char* argv[]) {
     // unsigned int max_threads = std::thread::hardware_concurrency();
     // std::cout << max_threads << " threads" << std::endl;
 	auto start = std::chrono::high_resolution_clock::now();
-    std::vector<std::string> chromosomes = {"chr16","chr19"}; // "chr1", "chr9",
+    std::vector<std::string> chromosomes;
     // default values (if not provided by user)
-    int position_tolerance = 20; // [3,5,7,10]
-    int min_length = 10; //[5, 10]
-    double coverage_tolerance = 0.8; //[0.
+    int position_tolerance = 10;
+    int min_length = 10;
+    double coverage_tolerance = 0.8;
     double min_coverage = 0.05;
     std::string directory;
     int cores = 4;
@@ -28,11 +28,11 @@ int main(int argc, char* argv[]) {
     std::cout
     << "\n "
         <<
-    "        _____ _    ____ _____ ____  _____ ____  \n"
-    "       |  ___/ \\  / ___|_   _|  _ \\| ____|  _ \\ \n"
-    "       | |_ / _ \\ \\___ \\ | | | | | |  _| | |_) |\n"
-    "       |  _/ ___ \\ ___) || | | |_| | |___|  _ < \n"
-    "       |_|/_/   \\_\\____/ |_| |____/|_____|_| \\_\\"
+    "_____ _    ____ _____ ____  _____ ____  \n"
+    "|  ___/ \\  / ___|_   _|  _ \\| ____|  _ \\ \n"
+    "| |_ / _ \\ \\___ \\ | | | | | |  _| | |_) |\n"
+    "|  _/ ___ \\ ___) || | | |_| | |___|  _ < \n"
+    "|_|/_/   \\_\\____/ |_| |____/|_____|_| \\_\\"
     << "\n \n "
     << std::endl;
     std::cout << "Usage: fastder [options]\n\n"
@@ -106,6 +106,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    // exit if no directory is provided
     if (directory.empty())
     {
         std::cout << "[ERROR] No directory specified! Quitting...";

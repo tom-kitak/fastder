@@ -15,7 +15,6 @@
 #include <future>
 
 
-
 //compute mean coverage vector across samples
 void Averager::compute_mean_coverage(std::vector<std::unordered_map<std::string, std::vector<double>>>& all_per_base_coverages)
 {
@@ -31,7 +30,6 @@ void Averager::compute_mean_coverage(std::vector<std::unordered_map<std::string,
     {
         std::string chrom = item.first;
         workers[chrom] = std::async(std::launch::async, [&, chrom]{
-        //std::cout << "COMPUTING MEAN FOR CHROMOSOME " << chrom << std::endl;
         std::vector<double> chrom_mean_vector;
         // iterate over values for each chromosome
         for (unsigned int i = 0; i < all_per_base_coverages[0][chrom].size(); i++)
@@ -49,9 +47,7 @@ void Averager::compute_mean_coverage(std::vector<std::unordered_map<std::string,
         });
 
     }
-    //avoid using mutexes, just do single-threaded merge
-    // TODO later use >1 thread per chromosome
-
+    // join threads
     for (auto& pair : all_per_base_coverages.at(0))
     {
         std::string chrom = pair.first;
@@ -59,12 +55,10 @@ void Averager::compute_mean_coverage(std::vector<std::unordered_map<std::string,
         std::cout << "[INFO] Computed mean for " << chrom << " with #bp = " << all_per_base_coverages[0].at(chrom).size() << std::endl;
         assert(all_per_base_coverages[0].at(chrom).size() == mean_coverage[chrom].size());
     }
-
 }
 
-
 // identify ERs with coverage > threshold and length > min_length bp
-void Averager::find_ERs(double threshold, int min_length)//, std::vector<std::string>& chromosome_sequence)
+void Averager::find_ERs(double threshold, int min_length)
 {
     // define workers --> use one thread per chromosome
     std::unordered_map<std::string, std::future<std::vector<BedGraphRow>>> workers;
@@ -86,17 +80,16 @@ void Averager::find_ERs(double threshold, int min_length)//, std::vector<std::st
             for (unsigned int i = 0; i <= mean_coverage[chrom].size(); i++)
             {
                 // append the last expressed region if it's long enough
-                if (i == mean_coverage[chrom].size() && (i - start) > min_length)
-                {
-                    //TODO last ER can be inclusive or exclusive depending on mean_coverage[chrom][i] <= threshold, but this is currently not encoded
-                    double current_avg = current_sum / (i - start);
-                    BedGraphRow expressed_region = BedGraphRow(chrom, start, i, current_avg);
-                    //expressed_region.print();
-                    chrom_expressed_regions.push_back(expressed_region);
-
+                if (i == mean_coverage[chrom].size()) {
+                    if ((i - start) > min_length)
+                    {
+                        //TODO last ER can be inclusive or exclusive depending on mean_coverage[chrom][i] <= threshold, but this is currently not encoded
+                        double current_avg = current_sum / (i - start);
+                        BedGraphRow expressed_region = BedGraphRow(chrom, start, i, current_avg);
+                        chrom_expressed_regions.push_back(expressed_region);
+                    }
                     break;
                 }
-
 
                 double coverage =  mean_coverage[chrom][i];
                 // coverage is less than threshold
