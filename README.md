@@ -135,7 +135,3 @@ GPLv3
 ## Contact
 
 martina.lavanya@gmail.com
-
-## TODO
-- Snakemake pipeline
-- installation requirements: CMAke version 4 or newer
