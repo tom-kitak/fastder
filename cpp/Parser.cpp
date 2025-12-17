@@ -23,11 +23,11 @@
 Parser::Parser(std::string path_, std::vector<std::string> chromosomes_, int cores_) {
     path = path_;
     user_cores = cores_;
-    std::cout << "[INFO] fastder will use " << cores_ << "! To change the number of cores, provide a different value with the --cores flag" << std::endl;
+    std::cout << "[INFO] fastder will use up to" << cores_ << " cores. To change the maximum number of cores, provide a different value with the --cores flag." << std::endl;
     // default: use all chromosomes
     if (chromosomes_.empty())
     {
-        std::cout << "[INFO] User specified no chromosomes! fastder uses all chromosomes by default." << std::endl;
+        std::cout << "[INFO] User specified no chromosomes. fastder uses all chromosomes by default." << std::endl;
         chromosomes_vec.assign(permitted_chromosomes.begin(), permitted_chromosomes.end());
         chromosomes_set = permitted_chromosomes;
 
@@ -405,13 +405,13 @@ void Parser::search_directory() {
         // create rail_id_to_ext_id
         if (filename.find("BigWig_list") != std::string::npos && filename.find(".csv") != std::string::npos) //TODO I checked some filenames of the URL csv files manually and they all contain the substring BigWig_list, so I hope that this is a general rule
         {
-            std::cout << "[INPUT] BigWig URL list " << filename << std::endl;
+            std::cout << "[FILE] Processing Metadata CSV File " << filename << std::endl;
             read_url_csv(filename);
             contains_ids = true;
         }
         // read RR file
         else if (filename.find("ALL.RR") != std::string::npos) {
-            std::cout << "[INPUT] RR file" << filename << std::endl;
+            std::cout << "[FILE] Processing RR File " << mm_file << std::endl;
             read_rr(filename);
 
         }
@@ -419,12 +419,10 @@ void Parser::search_directory() {
         // collect all bedgraph files to later fill up rail_id_to_mm_id
         else if (filename.find(".bedGraph") != std::string::npos)
         {
-            std::cout << "[INPUT] Bedgraph file "<< filename << std::endl;
             bedgraph_files.emplace_back(filename);
         }
 
         else if (entry.path().extension().string() == ".MM" && filename.find("ALL.MM") != std::string::npos && filename.find("mmcache") == std::string::npos) {
-            std::cout << "[INPUT] MM file " << filename << std::endl;
             mm_file = filename;
         }
         // else {
@@ -456,7 +454,7 @@ void Parser::search_directory() {
     unsigned int nof_threads = std::min(max_threads, nof_samples);
 
     // launch separate thread to parse MM file
-    std::cout << "[FILE] Processing MM File" << std::endl;
+    std::cout << "[FILE] Processing MM File " << mm_file << std::endl;
     std::thread mm_thread(&Parser::read_mm, this, mm_file);
 
     // parse all bedgraph files concurrently
@@ -464,6 +462,5 @@ void Parser::search_directory() {
 
     // stop MM thread
     mm_thread.join();
-    std::cout << "[INFO] Finished parsing all files." << std::endl;
 
 }
