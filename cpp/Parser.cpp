@@ -24,7 +24,7 @@ Parser::Parser(std::string path_, std::vector<std::string> chromosomes_, int cor
     path = path_;
     user_cores = cores_;
     std::cout << "[INFO] fastder will use up to " << cores_ << " cores. To change the maximum number of cores, provide a different value with the --cores flag." << std::endl;
-    // default: use all chromosomes
+
     if (chromosomes_.empty())
     {
         std::cout << "[INFO] User specified no chromosomes. fastder uses all chromosomes by default.\n" << std::endl;
@@ -190,8 +190,8 @@ void Parser::read_rr(std::string filename)
 
 
 
-// create dictionary mm_sj_counts with keys (sj_id) and values (cumulative count of this sj across samples)
-// IMPORTANT: the RR file is NOT sorted by chromosomes!
+// read MM file
+// IMPORTANT: the RR file is not sorted by chromosomes!
 void Parser::read_mm(std::string filename) {
         //read in file from path
         std::ifstream file(filename);
@@ -392,7 +392,6 @@ void Parser::read_all_bedgraphs(std::vector<std::string> bedgraph_files, unsigne
 
 // attempt to parse all files in path (not recursive!)
 void Parser::search_directory() {
-
     bool contains_ids = false;
 
     // first check for the external_id to rail_id mapping CSV file
@@ -448,9 +447,8 @@ void Parser::search_directory() {
     fill_up(bedgraph_files);
     std::cout << "[INFO] User provided " << mm_ids.size() << " samples." << std::endl;
 
-    unsigned int max_threads = std::max(user_cores, min_cores); //require at least 3 cores + 1 core fo
     unsigned int nof_samples =  mm_ids.size();
-    unsigned int nof_threads = std::min(max_threads, nof_samples);
+    unsigned int nof_threads = std::min(user_cores, nof_samples);
 
     // launch separate thread to parse MM file
     std::cout << "[FILE] Processing MM File " << mm_file << std::endl;

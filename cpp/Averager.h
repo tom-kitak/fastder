@@ -18,13 +18,10 @@ class Averager {
     public:
         Averager(int threads_);
         void compute_mean_coverage(std::vector<std::unordered_map<std::string, std::vector<double>>>& all_per_base_coverages);
-
         void find_ERs(double threshold, int min_length);
 
-        // MEMBER VARIABLES
-
-        //matrix consisting of multiple vectors, where each row in a vector is of type BedGraphRow,
-        //a BedGraphRow is a bin of nucleotides with the same read count
+        // matrix consisting of multiple vectors, where each row in a vector is of type BedGraphRow,
+        // a BedGraphRow is a bin of nucleotides with the same read count
         // a vector of BedGraphRows corresponds to one sample
         //matrix where each vector contains the normalized count per base from ONE sample
         int nof_threads;
@@ -32,8 +29,6 @@ class Averager {
         std::mutex map_mutex;
         std::unordered_map<std::string, std::vector<double>> mean_coverage; //key = chromosome, value = vector of per-base mean coverage of this chromosome
         std::unordered_map<std::string, std::vector<BedGraphRow>> expressed_regions; //key = chromosome, value = vector of BedGraphRows with coverage > threshold
-        //std::vector<std::unordered_map<std::string, std::vector<double>>> all_per_base_coverages;
-        // one unordered map per sample with keys = chromosome nr, values = vector of per-base coverage for that chromosome
         // store all the individual sample maps in a vector (since sample identity doesn't matter anymore later on)
 
 

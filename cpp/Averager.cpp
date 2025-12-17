@@ -45,8 +45,7 @@ void Averager::compute_mean_coverage(std::vector<std::unordered_map<std::string,
     threads.reserve(nof_threads);
     std::atomic_int next_index{0};
 
-    //std::cout << "[INFO] Provided #samples = " << all_per_base_coverages.size() << ", #chromosomes = "<< all_per_base_coverages[0].size() << std::endl;
-
+    std::cout << "[INFO] fastder is using " << nof_threads << " threads for detecting ERs." << std::endl;
     // parallel iteration over chromosomes. pair.first = chromosome, pair.second = vector of per base coverages of that chromosome
     for (unsigned int t = 0; t < nof_threads; ++t)
     {

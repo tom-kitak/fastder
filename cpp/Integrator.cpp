@@ -27,7 +27,7 @@ bool Integrator::within_threshold(uint64_t pos_1, uint64_t pos_2) const
     return pos_1 >= pos_2 - position_tolerance && pos_1 <= pos_2 + position_tolerance;
 }
 
-// function that calculates relative match with a tolerance of +/- 5%
+// check if SJ and ERs match (coordinate and coverage check)
 bool Integrator::is_similar(const StitchedER& most_recent_er, const BedGraphRow& expressed_region, const SJRow& current_sj){
 
     return (within_threshold(most_recent_er.end, current_sj.start)

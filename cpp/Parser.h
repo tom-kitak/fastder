@@ -29,8 +29,7 @@ public:
     static void compute_per_base_coverage(const BedGraphRow& row, std::unordered_map<std::string, std::vector<double>>& per_base_coverage);
 
     // TODO add function get_rail_id_from_filename(filename)?
-    int user_cores;
-    const int min_cores = 3;
+    unsigned int user_cores;
     std::string path;
     std::vector<std::string> chromosomes_vec; // for fast iteration
     std::unordered_set<std::string> chromosomes_set; // for fast check if chromosome is included

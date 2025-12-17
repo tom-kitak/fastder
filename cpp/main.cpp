@@ -25,32 +25,33 @@ int main(int argc, char* argv[]) {
 
     std::cout
     << "\n "
-        <<
+
     "_____ _    ____ _____ ____  _____ ____  \n"
     "|  ___/ \\  / ___|_   _|  _ \\| ____|  _ \\ \n"
     "| |_ / _ \\ \\___ \\ | | | | | |  _| | |_) |\n"
     "|  _/ ___ \\ ___) || | | |_| | |___|  _ < \n"
     "|_|/_/   \\_\\____/ |_| |____/|_____|_| \\_\\"
-    << "\n \n "
+    << "\n\nCopyright (c) 2025 Martina Lavanya Lehmann\n"
     << std::endl;
     std::cout << "Usage: fastder [options]\n\n"
                 << "Options:\n"
-                << "  --dir <path> ...             [REQUIRED] Relative path from build directory to file directory. \n"
+                << "  --dir <path> ...             [REQUIRED] Path to directory with input files (relative path to build directory or absolute path). \n"
                 << "                               Example: --dir ../../data/test_exon_skipping \n\n"
-                << "  --chr <chr1> <2> ...         List of chromosomes to process. Default = ALL.\n"
+                << "  --chr <chr1> <chr2> ...      List of chromosomes to process. Default = ALL.\n"
                 << "                               Example: --chr chr1 chr2 or --chr 1 2 \n\n"
                 << "  --min-coverage <float>       Coverage threshold to qualify as an expressed region (ER), in [CPM]. \n"
                    "                               Normalization is done in-place by library size. \n"
                    "                               Default = 0.05 CPM.\n"
                 << "                               Example: --min-coverage 0.25\n\n"
-                << "  --position-tolerance <int>   Maximum permitted position deviation of splice junction and ER coordinates, in [bp]. Default = 5 bp.\n"
+                << "  --position-tolerance <int>   Maximum permitted position deviation of splice junction and ER coordinates, in [nt]. Default = 5 nt.\n"
                 << "                               Example: --position-tolerance 5\n\n"
-                << "  --coverage-tolerance <float> Permitted coverage deviation within a stitched ER, as a proportion (e.g. 0.1 = 10 %). Default = 0.7.\n"
+                << "  --coverage-tolerance <float> Permitted coverage deviation within a stitched ER, as a proportion (e.g. 0.1 = 10 %).\n"
+                << "                               The value is not strictly bound in (0,1). Default = 0.7.\n"
                 << "                               Example: --coverage-tolerance 0.8\n\n"
                 << "  --cores <int>                Number of cores that fastder may use. Default = 10 cores.\n"
                 << "                               Example: --cores 23\n\n"
                 << "Example:\n"
-                << "  ./fastder --chr chr1 chr2 --position-tolerance 5 "
+                << "  ./fastder --dir ../data --chr chr1 chr2 --position-tolerance 5 "
                  "--min-coverage 0.05 --coverage-tolerance 0.7 --cores 23\n"
                 << std::endl;
 
@@ -118,6 +119,7 @@ int main(int argc, char* argv[]) {
     }
 
     // parse files
+    std::cout << "[INFO] Expecting to parse MM, RR, BedGraph and Metadata CSV files from " << directory << std::endl;
     Parser parser(directory, chromosomes, cores);
     parser.search_directory();
 
@@ -172,7 +174,7 @@ int main(int argc, char* argv[]) {
     // print duration
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
-    std::cout << "[INFO] Total duration: " << elapsed.count() << " seconds.\n";
+    std::cout << "[INFO] Total duration (wallclock time): " << elapsed.count() << " seconds.\n";
 
     return 0;
 }

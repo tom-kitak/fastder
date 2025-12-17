@@ -5,7 +5,7 @@
 #include "StitchedER.h"
 
 
-// initialize a new StitchedER with one ER
+// initialize a new StitchedER from one ER
 StitchedER::StitchedER(const BedGraphRow& expressed_region, int er_id)
 {
     chrom = expressed_region.chrom;
