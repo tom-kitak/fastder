@@ -13,29 +13,26 @@ Integrator::Integrator(double coverage_tolerance_, int position_tolerance_)
     position_tolerance = position_tolerance_;
 }
 
-
-
 // function that calculates relative match with a tolerance of +/- n%
-bool Integrator::within_threshold(double val1, double val2){
+bool Integrator::within_threshold(double val1, double val2) const
+{
     double tolerance_bottom = val1 * (1 - coverage_tolerance);
     double tolerance_top = val1 * (1 + coverage_tolerance);
     return val2 >= tolerance_bottom && val2 <= tolerance_top;
 }
 
-
-bool Integrator::within_threshold(uint64_t pos_1, uint64_t pos_2){
-    //example: pos_1 = 15 (end position of exon), pos_2 = 18 (start position of SJ)
-    // pos_1 must be within 18 +- 5
-    // 15 >= 18 - 5 and 15 <= 18 + 5
+// same function for 64-bit integers
+bool Integrator::within_threshold(uint64_t pos_1, uint64_t pos_2) const
+{
     return pos_1 >= pos_2 - position_tolerance && pos_1 <= pos_2 + position_tolerance;
 }
 
-// function that calculates relative match with a tolerance of +/- 5%
+// check if SJ and ERs match (coordinate and coverage check)
 bool Integrator::is_similar(const StitchedER& most_recent_er, const BedGraphRow& expressed_region, const SJRow& current_sj){
 
     return (within_threshold(most_recent_er.end, current_sj.start)
        && within_threshold(expressed_region.start, current_sj.end)
-       && within_threshold(most_recent_er.across_er_coverage, expressed_region.coverage)); //TODO maybe compare with across_er_coverage instead
+       && within_threshold(most_recent_er.across_er_coverage, expressed_region.coverage)); //TODO perhaps compare with across_er_coverage instead
 }
 
 // function that calculates relative match with a tolerance of +/- 5%
@@ -47,30 +44,13 @@ bool Integrator::sj_too_far_back(const uint64_t most_recent_er_end, const uint64
 
 void Integrator::stitch_up(std::unordered_map<std::string, std::vector<BedGraphRow>>& expressed_regions, const std::map<std::string, std::vector<uint64_t>>& mm_chrom_sj, const std::vector<SJRow>& rr_all_sj)
 {
-    // print all splice junctions in chromosome 1
-    // std::cout << "--TEST SJ--" << std::endl;
-    // for (auto& cov : mm_chrom_sj.at("chr1"))
-    // {
-    //     std::cout << cov << ", " << rr_all_sj.at(cov - 1) << std::endl;
-    // }
-    // std::cout << "--TEST SJ--" << std::endl;
-    //
-    // // print all ERs in chromosome 1
-    // std::cout << "--TEST ERs--" << std::endl;
-    // for (auto& er : expressed_regions.at("chr1"))
-    // {
-    //     er.print();
-    // }
-    // std::cout << "--TEST ERs--" << std::endl;
     // iterate over chromosomes and sj_ids -> sjs.first = chrom, sjs.second = vector<sj_id>
     for (auto& sjs : mm_chrom_sj)
     {
-        std::cout << "[INFO] Stitching chromosome " << sjs.first << std::endl;
+        //std::cout << "[INFO] Stitching chromosome " << sjs.first << std::endl;
         std::string chrom = sjs.first;
         StitchedER er1 = StitchedER(expressed_regions.at(chrom).at(0), 0); // define the first StitchedER, currently consisting of 1 ER
-        stitched_ERs.push_back(er1);
-
-        expressed_regions.at(chrom).at(0).print();
+        stitched_ERs.emplace_back(er1);
         auto current_sj_id = sjs.second.begin(); // iterator over the vector of sj_id
 
         int max_stitched_ers = 0;
@@ -83,42 +63,25 @@ void Integrator::stitch_up(std::unordered_map<std::string, std::vector<BedGraphR
             if (current_sj_id != sjs.second.end()){
                 StitchedER& current_stitched_er = stitched_ERs.back(); // this is one expressed region right now
 
-                // skip to SJ with coordinates that line up with the most recent ER
-                // std::cout << "upstream ER: " << expressed_regions[chrom][current_stitched_er.er_ids.back()].chrom << ", (pos) " << expressed_regions[chrom][current_stitched_er.er_ids.back()].start << "\t" << expressed_regions[chrom][current_stitched_er.er_ids.back()].end << ", (len) " << expressed_regions[chrom][current_stitched_er.er_ids.back()].end -  expressed_regions[chrom][current_stitched_er.er_ids.back()].start <<std::endl;
-                // std::cout << "downstream ER: " << expressed_region.chrom << ", (pos) " << expressed_region.start << "\t" << expressed_region.end << ", (len) " <<  expressed_region.end  - expressed_region.start << std::endl;
-                // std::cout << "current SJ = " << rr_all_sj[*current_sj_id - 1].start << " <--> " <<  rr_all_sj[*current_sj_id - 1].end << std::endl;
+                // skip ahead to SJ with coordinates that line up with the most recent ER
                 while (current_sj_id != sjs.second.end()
                     && (current_stitched_er.end > rr_all_sj[*current_sj_id - 1].start && !within_threshold(current_stitched_er.end, rr_all_sj[*current_sj_id - 1].start))
-                    && rr_all_sj[*current_sj_id - 1].chrom == chrom) //& !within_threshold(most_recent_er.end, rr_all_sj[*current_sj_id - 1].start)
+                    && rr_all_sj[*current_sj_id - 1].chrom == chrom)
                 {
-                    //std::cout << "current SJ = " << rr_all_sj[*current_sj_id - 1].start << " <--> " <<  rr_all_sj[*current_sj_id - 1].end << std::endl;
                     ++current_sj_id;
-
                 }
                 // make sure to never dereference the end() pointer
                 if (current_sj_id == sjs.second.end())
                 {
                     --current_sj_id;
                 }
-
                 // get rr_all_sj, which is a vector of SJRows
                 if (is_similar(current_stitched_er, expressed_region, rr_all_sj[*current_sj_id - 1]))
                 {
-
-                    //std::cout << "[JUNCTION] " << expressed_regions[chrom][current_stitched_er.er_ids.back()].end << " <--> " << rr_all_sj[*current_sj_id - 1].start << ", " << rr_all_sj[*current_sj_id - 1].end<< " <--> " <<  expressed_region.start << std::endl;
-
-                    //expressed_region.print();
-                    // the chromosome that
-                    assert(rr_all_sj[*current_sj_id - 1].chrom == expressed_region.chrom && expressed_region.chrom == expressed_regions[chrom][current_stitched_er.er_ids.back()].chrom);
-                    //expressed_region.print();
                     uint64_t sj_length = expressed_region.start - expressed_regions[chrom][current_stitched_er.er_ids.back()].end; // always use ER coordinates since a small mismatch of SJ and ER coordinates is tolerated
-                    // append the spliced region and the exon
-                    current_stitched_er.append(-1, sj_length, 0.0);
+                    current_stitched_er.append(-1, sj_length, 0.0);  // append the spliced region and the intron
                     current_stitched_er.append(i, expressed_region.length, expressed_region.coverage);
                     ++nof_stitched_ers;
-
-                    assert(current_stitched_er.end == expressed_region.end);
-
                     // move to next SJ
                     ++current_sj_id;
 
@@ -128,26 +91,20 @@ void Integrator::stitch_up(std::unordered_map<std::string, std::vector<BedGraphR
                         max_stitched_ers = nof_stitched_ers;
                     }
                 }
-
                 // current ER doesn't belong to any existing ERs --> start a new ER
                 else
                 {
                     nof_stitched_ers = 1; // reset counter
-                    stitched_ERs.push_back(StitchedER(expressed_region, i));
-
-
+                    stitched_ERs.emplace_back(StitchedER(expressed_region, i));
                 }
-                //std::cout << "\n";
-
-
             }
             // no more splice junctions left, so each remaining expressed region forms its own StitchedER
             else
             {
-                stitched_ERs.push_back(StitchedER(expressed_region, i));
+                stitched_ERs.emplace_back(StitchedER(expressed_region, i));
             }
         }
-        std::cout << "[INFO] Longest stitched ER contains " << max_stitched_ers << " ERs" << std::endl;
+        std::cout << "[INFO] Longest stitched ER in " << chrom << " contains " << max_stitched_ers << " ERs" << std::endl;
     }
 }
 
@@ -159,20 +116,20 @@ void Integrator::write_to_gtf(const std::string& output_path)
         std::cerr << "[ERROR] could not open output file " << output_path << std::endl;
         return;
     }
-    // get today's date
-    auto now = std::chrono::system_clock::now();
-    std::chrono::year_month_day ymd{std::chrono::floor<std::chrono::days>(now)}; //formatted as YYYY-MM-DD
 
-    // convert to string to avoid << error
+    auto now = std::chrono::system_clock::now(); // get today's date
+    std::chrono::year_month_day ymd{std::chrono::floor<std::chrono::days>(now)}; // formatted as YYYY-MM-DD
+
+    // convert to string to avoid errors
     std::string date =
         std::to_string(int(ymd.year())) + "-" +
         std::to_string(unsigned(ymd.month())) + "-" +
         std::to_string(unsigned(ymd.day()));
 
     // write headers
-    out << "#description: expressed region annotation of genome based on bigwig and MM / RR splice junction information." << std::endl;
+    out << "#description: expressed region annotation of the genome based on BedGraph and MM / RR splice junction information." << std::endl;
     out << "#provider: FASTDER" << std::endl;
-    out << "#contact: marlehmann@ethz.ch" << std::endl;
+    out << "#contact: martina.lavanya@gmail.com" << std::endl;
     out << "#format: gtf" << std::endl;
     out << "#date: " << date << std::endl;
 
@@ -181,7 +138,6 @@ void Integrator::write_to_gtf(const std::string& output_path)
         // each stitched_er is both a gene and a transcript
         GTFRow gtf_row = GTFRow(stitched_ERs[i], "gene", i + 1);
         out << gtf_row << std::endl;
-
         gtf_row.change_feature("transcript", i + 1, 0);
         out << gtf_row << std::endl;
         int exon_nr = 1;
@@ -190,11 +146,9 @@ void Integrator::write_to_gtf(const std::string& output_path)
         {
             if (stitched_ERs[i].er_ids.at(k) != -1){
                 gtf_row.change_feature("exon", i + 1, exon_nr);
-                //std::cout  << "start = " << gtf_row.start << ", length = " << stitched_ERs.at(i).all_coverages.at(k).first << std::endl;
-                // need to use the SJ length as well
+                // need to include SJ length as well
                 gtf_row.end = gtf_row.start + stitched_ERs.at(i).all_coverages.at(k).first; // start + length = end
                 gtf_row.score = stitched_ERs.at(i).all_coverages.at(k).second; // use the per-exon average coverage here instead of the overall coverage
-
                 out << gtf_row << std::endl;
                 gtf_row.start = gtf_row.end;
                 ++exon_nr;
@@ -202,10 +156,8 @@ void Integrator::write_to_gtf(const std::string& output_path)
             else
             {
                 gtf_row.start += stitched_ERs.at(i).all_coverages.at(k).first; // add length of the SJ
-                //std::cout << "added sj length: " << stitched_ERs.at(i).all_coverages.at(k).first << std::endl;
             }
         }
-
     }
     out.close();
 }

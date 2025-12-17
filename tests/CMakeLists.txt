@@ -1,4 +1,4 @@
-project(mls-tests)
+project(fastder-tests)
 
 include(FetchContent)
 
@@ -13,16 +13,18 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(googletest)
 
-add_executable(mls-tests
+add_executable(fastder-tests
     UnitTests.cpp
+add_executable(fastder-tests
+        UnitTests.cpp
 )
 
-target_link_libraries(mls-tests
-    PRIVATE
-    mls_lib
-    GTest::gtest
-    GTest::gtest_main
+target_link_libraries(fastder-tests
+        PRIVATE
+        fastder_lib
+        GTest::gtest
+        GTest::gtest_main
 )
 
 include(GoogleTest)
-gtest_discover_tests(mls-tests)
+gtest_discover_tests(fastder-tests)

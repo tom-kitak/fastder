@@ -16,7 +16,7 @@ GTFRow::GTFRow(const StitchedER& region, std::string ftr, unsigned int id)
     score = region.across_er_coverage;
     start = region.start;
     end = region.end;
-    // update column 9 based on feature
+
     change_feature(ftr, id, 0);
 
 
@@ -41,7 +41,7 @@ void GTFRow::change_feature(std::string ftr, unsigned int id, unsigned int exon_
     }
     else
     {
-        std::cout << "[ERROR] unknown feature";
+        std::cerr << "[ERROR] Unknown feature " << ftr << std::endl;
     }
 
     // add exon number only if it's an exon
@@ -51,7 +51,6 @@ void GTFRow::change_feature(std::string ftr, unsigned int id, unsigned int exon_
         attribute += std::to_string(exon_nr);
 
     }
-
 
     attribute += "\";";
     // attribute += "\"; nof_expressed_regions="; //hid=trf; hstart=1; hend=21

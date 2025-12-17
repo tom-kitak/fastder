@@ -13,45 +13,47 @@
 #include <chrono>
 #include <thread>
 int main(int argc, char* argv[]) {
-    // unsigned int max_threads = std::thread::hardware_concurrency();
-    // std::cout << max_threads << " threads" << std::endl;
 	auto start = std::chrono::high_resolution_clock::now();
-    std::vector<std::string> chromosomes; // = {"chr19"}; // "chr1", "chr9",
+    std::vector<std::string> chromosomes;
     // default values (if not provided by user)
-    int position_tolerance = 20; // [3,5,7,10]
-    int min_length = 10; //[5, 10]
-    double coverage_tolerance = 0.8; //[0.
+    int position_tolerance = 5;
+    int min_length = 10;
+    double coverage_tolerance = 0.8;
     double min_coverage = 0.05;
-    std::string directory  = "../data";
-    bool directory_provided = true;
+    std::string directory;
+    int cores = 10;
 
     std::cout
     << "\n "
-        <<
-    "        _____ _    ____ _____ ____  _____ ____  \n"
-    "       |  ___/ \\  / ___|_   _|  _ \\| ____|  _ \\ \n"
-    "       | |_ / _ \\ \\___ \\ | | | | | |  _| | |_) |\n"
-    "       |  _/ ___ \\ ___) || | | |_| | |___|  _ < \n"
-    "       |_|/_/   \\_\\____/ |_| |____/|_____|_| \\_\\"
-    << "\n \n "
+
+    "_____ _    ____ _____ ____  _____ ____  \n"
+    "|  ___/ \\  / ___|_   _|  _ \\| ____|  _ \\ \n"
+    "| |_ / _ \\ \\___ \\ | | | | | |  _| | |_) |\n"
+    "|  _/ ___ \\ ___) || | | |_| | |___|  _ < \n"
+    "|_|/_/   \\_\\____/ |_| |____/|_____|_| \\_\\"
+    << "\n\nCopyright (c) 2025 Martina Lavanya Lehmann\n"
     << std::endl;
     std::cout << "Usage: fastder [options]\n\n"
-            << "Options:\n"
-            << "  --dir <path> ...             [REQUIRED] Relative path from build directory to file directory. \n"
-            << "                               Example: --dir ../../data/test_exon_skipping \n\n"
-            << "  --chr <chr1> <chr2> ...      List of chromosomes to process. Default = ALL\n"
-            << "                               Example: --chr chr1 chr2 chr3\n\n"
-            << "  --min-coverage <float> Coverage threshold to qualify as an expressed region (ER), in [CPM]. Normalization is done in-place by library size. Default = 0.25 CPM.\n"
-            << "                               Example: --min-coverage 0.25\n\n"
-            << "  --position-tolerance <int>   Maximum permitted position deviation of splice junction and ER coordinates, in [bp]. Default = 5 bp\n"
-            << "                               Example: --position-tolerance 5\n\n"
-            << "  --coverage-tolerance <float> Permitted coverage deviation between stitched ERs, as a proportion (e.g. 0.1 = 10 %). Default = 0.1\n"
-            << "                               Example: --coverage-tolerance 0.1\n\n"
-            << "  --help                       Show this help message.\n\n"
-            << "Example:\n"
-            << "  ./fastder  --dir ../../data/test_exon_skipping --chr chr1 chr2 --position-tolerance 5 "
-             "--min-coverage 0.25 --coverage-tolerance 0.1\n"
-            << std::endl;
+                << "Options:\n"
+                << "  --dir <path> ...             [REQUIRED] Path to directory with input files (relative path to build directory or absolute path). \n"
+                << "                               Example: --dir ../../data/test_exon_skipping \n\n"
+                << "  --chr <chr1> <chr2> ...      List of chromosomes to process. Default = ALL.\n"
+                << "                               Example: --chr chr1 chr2 or --chr 1 2 \n\n"
+                << "  --min-coverage <float>       Coverage threshold to qualify as an expressed region (ER), in [CPM]. \n"
+                   "                               Normalization is done in-place by library size. \n"
+                   "                               Default = 0.05 CPM.\n"
+                << "                               Example: --min-coverage 0.25\n\n"
+                << "  --position-tolerance <int>   Maximum permitted position deviation of splice junction and ER coordinates, in [nt]. Default = 5 nt.\n"
+                << "                               Example: --position-tolerance 5\n\n"
+                << "  --coverage-tolerance <float> Permitted coverage deviation within a stitched ER, as a proportion (e.g. 0.1 = 10 %).\n"
+                << "                               The value is not strictly bound in (0,1). Default = 0.7.\n"
+                << "                               Example: --coverage-tolerance 0.8\n\n"
+                << "  --cores <int>                Number of cores that fastder may use. Default = 10 cores.\n"
+                << "                               Example: --cores 23\n\n"
+                << "Example:\n"
+                << "  ./fastder --dir ../data --chr chr1 chr2 --position-tolerance 5 "
+                 "--min-coverage 0.05 --coverage-tolerance 0.7 --cores 23\n"
+                << std::endl;
 
     // parse command-line arguments
     for (int i = 1; i < argc; i++)
@@ -61,10 +63,15 @@ int main(int argc, char* argv[]) {
         if (arg == "--chr") // --chr chr1 chr2
         {
             ++i;
-            // the next argument is indicated with the --
+            // the next argument starts with --
             while (i < argc && std::string(argv[i]).rfind("--", 0) == std::string::npos)
             {
-                chromosomes.push_back(argv[i]);
+                std::string chrom = argv[i];
+                if (chrom.find("chr") == std::string::npos)
+                {
+                    chrom = "chr" + chrom; // add "chr" prefix if user passes --chr 1 2 3
+                }
+                chromosomes.push_back(chrom);
                 ++i;
             }
             // decrement i again
@@ -74,6 +81,10 @@ int main(int argc, char* argv[]) {
         else if (arg == "--position-tolerance")
         {
             position_tolerance = atoi(argv[++i]);
+        }
+        else if (arg == "--cores")
+        {
+            cores = atoi(argv[++i]);
         }
         else if (arg == "--min-length")
         {
@@ -92,29 +103,6 @@ int main(int argc, char* argv[]) {
         else if (arg == "--dir")
         {
             directory = argv[++i];
-            directory_provided = true;
-        }
-        else if (arg == "--help")
-        {
-            std::cout << "Usage: fastder [options]\n\n"
-                        << "Options:\n"
-                        << "  --dir <path> ...             [REQUIRED] Relative path from build directory to file directory. \n"
-                        << "                               Example: --dir ../../data/test_exon_skipping \n\n"
-                        << "  --chr <chr1> <chr2> ...      List of chromosomes to process. Default = ALL\n"
-                        << "                               Example: --chr chr1 chr2 chr3\n\n"
-                        << "  --min-coverage <float>       Coverage threshold to qualify as an expressed region (ER), in [CPM]. Normalization is done in-place by library size. \n"
-                           "                               Default = 0.25 CPM.\n"
-                        << "                               Example: --min-coverage 0.25\n\n"
-                        << "  --position-tolerance <int>   Maximum permitted position deviation of splice junction and ER coordinates, in [bp]. Default = 5 bp\n"
-                        << "                               Example: --position-tolerance 5\n\n"
-                        << "  --coverage-tolerance <float> Permitted coverage deviation within a stitched ER, as a proportion (e.g. 0.1 = 10 %). Default = 0.1\n"
-                        << "                               Example: --coverage-tolerance 0.1\n\n"
-                        << "  --help                       Show this help message.\n\n"
-                        << "Example:\n"
-                        << "  ./fastder --chr chr1 chr2 --position-tolerance 5 "
-                         "--min-coverage 0.25 --coverage-tolerance 0.1\n"
-                        << std::endl;
-
         }
         else
         {
@@ -123,18 +111,25 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    if (!directory_provided)
+    // exit if no directory is provided
+    if (directory.empty())
     {
-        std::cout << "[ERROR] No working directory provided! Quitting...";
+        std::cerr << "[ERROR] No directory with input files specified! Quitting..." << std::endl;
         return 1;
     }
 
     // parse files
-    Parser parser(directory, chromosomes);
+    std::cout << "[INFO] Expecting to parse MM, RR, BedGraph and Metadata CSV files from " << directory << std::endl;
+    Parser parser(directory, chromosomes, cores);
     parser.search_directory();
 
+    // print parsing duration
+    auto end_parsing = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed_parsing = end_parsing - start;
+    std::cout << "[INFO] Parsing took " << elapsed_parsing.count() << " seconds.\n \n";
+
     // get mean coverage vector
-    Averager averager;
+    Averager averager(cores);
     averager.compute_mean_coverage(parser.all_per_base_coverages);
 
     averager.find_ERs(min_coverage, min_length);
@@ -147,13 +142,13 @@ int main(int argc, char* argv[]) {
     // SUMMARY OF SPLICE JUNCTIONS
     for (auto& c : parser.mm_chrom_sj)
     {
-        std::cout << "[INFO] Splice Junctions in chr" << c.first << " : " << c.second.size() << std::endl;
+        std::cout << "[INFO] Splice junctions in " << c.first << " : " << c.second.size() << std::endl;
     }
 
     // SUMMARY OF EXPRESSED REGIONS
     for (auto& c : averager.expressed_regions)
     {
-        std::cout << "[INFO] Expressed Regions in " << c.first << " : " << c.second.size() << std::endl;
+        std::cout << "[INFO] Expressed Regions in " << c.first << ": " << c.second.size() << std::endl;
     }
 
     // SUMMARY OF STITCHED EXPRESSED REGIONS
@@ -163,22 +158,23 @@ int main(int argc, char* argv[]) {
         ser_counts[stitched_er.chrom]++;
     }
 
-    std::cout << "[INFO] Total Stitched Regions: "  << integrator.stitched_ERs.size() << std::endl;
+    std::cout << "[INFO] Total Stitched ERs across all chromosomes: "  << integrator.stitched_ERs.size() << std::endl;
 
     for (auto& c : ser_counts)
     {
-        std::cout << "[INFO] Stitched ERs in " << c.first << " : " << c.second << std::endl;
+        std::cout << "[INFO] Stitched ERs in " << c.first << ": " << c.second << std::endl;
     }
 
 
     // convert to GTF format
-    std::string output_path = directory + "/FASTDER_RESULT_POS_TOL_" + std::to_string(position_tolerance) + "_MIN_COV_" + std::to_string(min_coverage) + "_COV_TOL_" + std::to_string(coverage_tolerance) + "_MIN_LENGTH_" + std::to_string(min_length) + ".gtf";
+    std::string prefix = (directory.back() == '/') ? "FASTDER_RESULT_POS_TOL_" : "/FASTDER_RESULT_POS_TOL_";
+    std::string output_path = directory + prefix + std::to_string(position_tolerance) + "_MIN_COV_" + std::to_string(min_coverage) + "_COV_TOL_" + std::to_string(coverage_tolerance) + "_MIN_LENGTH_" + std::to_string(min_length) + ".gtf";
     integrator.write_to_gtf(output_path);
 
     // print duration
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
-    std::cout << "[INFO] Duration: " << elapsed.count() << " seconds\n";
+    std::cout << "[INFO] Total duration (wallclock time): " << elapsed.count() << " seconds.\n";
 
     return 0;
 }

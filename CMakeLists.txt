@@ -1,7 +1,7 @@
 option(CONDA_BUILD "Building inside conda-build" OFF)
 
 cmake_minimum_required(VERSION 4.0)
-project(mls)
+project(fastder)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -10,10 +10,9 @@ find_package(Threads REQUIRED)
 
 include_directories(cpp)
 
-add_library(mls_lib
+add_library(fastder_lib
         cpp/Averager.cpp
         cpp/BedGraphRow.cpp
-        # cpp/integrate_sj.cpp
         cpp/Parser.cpp
         cpp/SJRow.cpp
         cpp/StitchedER.cpp
@@ -22,11 +21,10 @@ add_library(mls_lib
 )
 
 
-add_executable(mls
+add_executable(fastder
         cpp/main.cpp
 )
-
-target_link_libraries(mls PRIVATE mls_lib Threads::Threads)
+target_link_libraries(fastder PRIVATE fastder_lib Threads::Threads)
 
 enable_testing()
 
@@ -37,7 +35,7 @@ endif()
 # packaging
 set(CPACK_PACKAGE_NAME "fastder")
 set(CPACK_PACKAGE_VENDOR "Martina Lehmann")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "fastder, a fast expressed regions finder")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "fastder: A Fast, Agnostic, Splice-Junction-Based Tool for the Detection of Expressed Regions")
 set(CPACK_PACKAGE_VERSION "0.0.1")
 set(CPACK_PACKAGE_CONTACT "martina.lavanya@gmail.com")
 

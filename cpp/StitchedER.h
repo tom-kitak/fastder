@@ -19,7 +19,7 @@ public:
 
     StitchedER(const BedGraphRow& expressed_region, int er_id);
     void append(int er_id, unsigned int length, double coverage);
-    double get_avg_coverage();
+    double get_avg_coverage() const;
 
     //bool is_similar(double val1, double val2);
 
