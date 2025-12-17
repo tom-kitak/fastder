@@ -23,11 +23,11 @@
 Parser::Parser(std::string path_, std::vector<std::string> chromosomes_, int cores_) {
     path = path_;
     user_cores = cores_;
-    std::cout << "[INFO] fastder will use up to" << cores_ << " cores. To change the maximum number of cores, provide a different value with the --cores flag." << std::endl;
+    std::cout << "[INFO] fastder will use up to " << cores_ << " cores. To change the maximum number of cores, provide a different value with the --cores flag." << std::endl;
     // default: use all chromosomes
     if (chromosomes_.empty())
     {
-        std::cout << "[INFO] User specified no chromosomes. fastder uses all chromosomes by default." << std::endl;
+        std::cout << "[INFO] User specified no chromosomes. fastder uses all chromosomes by default.\n" << std::endl;
         chromosomes_vec.assign(permitted_chromosomes.begin(), permitted_chromosomes.end());
         chromosomes_set = permitted_chromosomes;
 
@@ -273,7 +273,6 @@ void Parser::read_mm(std::string filename) {
 // parse bigwig URL list csv file
 void Parser::read_url_csv(std::string filename)
 {
-    std::cout << filename << std::endl;
     //read in file from path
     std::ifstream file(filename);
     if (!file.is_open())
@@ -337,7 +336,7 @@ void Parser::fill_up(std::vector<std::string> bedgraph_files)
 }
 
 void Parser::read_all_bedgraphs(std::vector<std::string> bedgraph_files, unsigned int nof_threads) {
-    std::cout << "[INFO] Using " << nof_threads + 1 << " threads for parsing" << std::endl;
+    std::cout << "[INFO] fastder is using " << nof_threads + 1 << " threads for parsing." << std::endl;
     // reserve space
     all_bedgraphs.resize(bedgraph_files.size());
     all_per_base_coverages.resize(bedgraph_files.size());
@@ -411,7 +410,7 @@ void Parser::search_directory() {
         }
         // read RR file
         else if (filename.find("ALL.RR") != std::string::npos) {
-            std::cout << "[FILE] Processing RR File " << mm_file << std::endl;
+            std::cout << "[FILE] Processing RR File " << filename << std::endl;
             read_rr(filename);
 
         }
