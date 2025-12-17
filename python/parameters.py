@@ -25,7 +25,7 @@ def run_mls():
             min_coverages,
     ):
         cmd = [
-            "./mls",
+            "./fastder",
             "--dir", dir_arg,
             "--position-tolerance", str(pt),
             "--min-coverage", str(mc),

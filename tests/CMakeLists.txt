@@ -15,8 +15,6 @@ FetchContent_MakeAvailable(googletest)
 
 add_executable(fastder-tests
     UnitTests.cpp
-add_executable(fastder-tests
-        UnitTests.cpp
 )
 
 target_link_libraries(fastder-tests
