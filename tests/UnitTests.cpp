@@ -330,7 +330,7 @@ TEST(Parser, TestWrongChromosomeOrder)
     parser.search_directory();
 
     // get mean coverage vector
-    Averager averager;
+    Averager averager(cores);
     averager.compute_mean_coverage(parser.all_per_base_coverages);
 
     // get expressed regions
