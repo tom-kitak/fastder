@@ -21,7 +21,7 @@ int main(int argc, char* argv[]) {
     double coverage_tolerance = 0.8;
     double min_coverage = 0.05;
     std::string directory;
-    int cores = 4;
+    int cores = 10;
 
     std::cout
     << "\n "
@@ -47,11 +47,11 @@ int main(int argc, char* argv[]) {
                 << "                               Example: --position-tolerance 5\n\n"
                 << "  --coverage-tolerance <float> Permitted coverage deviation within a stitched ER, as a proportion (e.g. 0.1 = 10 %). Default = 0.7\n"
                 << "                               Example: --coverage-tolerance 0.8\n\n"
-                << "  --cores <int>                Number of cores that fastder may use. Default = 4\n"
+                << "  --cores <int>                Number of cores that fastder may use. Default = 10\n"
                 << "                               Example: --cores 8\n\n"
                 << "Example:\n"
                 << "  ./fastder --chr chr1 chr2 --position-tolerance 5 "
-                 "--min-coverage 0.25 --coverage-tolerance 0.1 --cores 8\n"
+                 "--min-coverage 0.05 --coverage-tolerance 0.7 --cores 23\n"
                 << std::endl;
 
     // parse command-line arguments
@@ -124,7 +124,7 @@ int main(int argc, char* argv[]) {
     // print parsing duration
     auto end_parsing = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed_parsing = end_parsing - start;
-    std::cout << "[INFO] Parsing took " << elapsed_parsing.count() << " seconds\n";
+    std::cout << "[INFO] Parsing took " << elapsed_parsing.count() << " seconds\n \n ";
 
     // get mean coverage vector
     Averager averager(cores);

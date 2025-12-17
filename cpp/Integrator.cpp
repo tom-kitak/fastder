@@ -47,7 +47,7 @@ void Integrator::stitch_up(std::unordered_map<std::string, std::vector<BedGraphR
     // iterate over chromosomes and sj_ids -> sjs.first = chrom, sjs.second = vector<sj_id>
     for (auto& sjs : mm_chrom_sj)
     {
-        std::cout << "[INFO] Stitching chromosome " << sjs.first << std::endl;
+        //std::cout << "[INFO] Stitching chromosome " << sjs.first << std::endl;
         std::string chrom = sjs.first;
         StitchedER er1 = StitchedER(expressed_regions.at(chrom).at(0), 0); // define the first StitchedER, currently consisting of 1 ER
         stitched_ERs.emplace_back(er1);
@@ -104,7 +104,7 @@ void Integrator::stitch_up(std::unordered_map<std::string, std::vector<BedGraphR
                 stitched_ERs.emplace_back(StitchedER(expressed_region, i));
             }
         }
-        std::cout << "[INFO] Longest stitched ER contains " << max_stitched_ers << " ERs" << std::endl;
+        std::cout << "[INFO] Longest stitched ER in " << chrom << " contains " << max_stitched_ers << " ERs" << std::endl;
     }
 }
 

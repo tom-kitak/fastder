@@ -23,11 +23,11 @@
 Parser::Parser(std::string path_, std::vector<std::string> chromosomes_, int cores_) {
     path = path_;
     user_cores = cores_;
-
+    std::cout << "[INFO] fastder will use " << cores_ << "! To change the number of cores, provide a different value with the --cores flag" << std::endl;
     // default: use all chromosomes
     if (chromosomes_.empty())
     {
-        std::cout << "[INFO] User specified no chromosomes! fastder will use all chromosomes." << std::endl;
+        std::cout << "[INFO] User specified no chromosomes! fastder uses all chromosomes by default." << std::endl;
         chromosomes_vec.assign(permitted_chromosomes.begin(), permitted_chromosomes.end());
         chromosomes_set = permitted_chromosomes;
 
@@ -266,8 +266,8 @@ void Parser::read_mm(std::string filename) {
                 mm_chrom_sj[rr_all_sj[sj_id - 1].chrom].emplace_back(sj_id);
             }
         }
-        std::cout << "[INFO] MM file contains " << count_lines << " lines"<< std::endl;
-        assert(sj_occ_in_samples <= count_lines);
+        //std::cout << "[INFO] MM file contains " << count_lines << " lines"<< std::endl;
+        //assert(sj_occ_in_samples <= count_lines);
     }
 
 // parse bigwig URL list csv file
@@ -368,16 +368,16 @@ void Parser::read_all_bedgraphs(std::vector<std::string> bedgraph_files, unsigne
                 std::vector<BedGraphRow> sample_bedgraph = read_bedgraph(bedgraph_files.at(i), library_size);
                 std::unordered_map<std::string, std::vector<double>> per_base_coverage;
 
-                //normalize to CPM and expand rows to per base coverage (also normalized)
+                // normalize to CPM and expand rows to per-base coverage (also normalized)
                 for (BedGraphRow& row : sample_bedgraph)
                 {
                     row.normalize(library_size);
                     compute_per_base_coverage(row, per_base_coverage);
                 }
 
-                // add to matrix of all bedgraphs per sample
+                // add all bedgraphs of one sample to the matrix
                 {
-                    std::lock_guard<std::mutex> lock(mutex);
+                    std::lock_guard lock(mutex);
                     all_bedgraphs[i] = std::move(sample_bedgraph);
                     all_per_base_coverages[i] = std::move(per_base_coverage);
                 }
@@ -427,15 +427,15 @@ void Parser::search_directory() {
             std::cout << "[INPUT] MM file " << filename << std::endl;
             mm_file = filename;
         }
-        else {
-            std::cout << "[INFO] Unknown file category: " << filename  << std::endl;
-        }
+        // else {
+        //     std::cout << "[INFO] Unknown file category: " << filename  << std::endl;
+        // }
     }
 
     // program cannot run with missing BigWig URL list
     if (!contains_ids || mm_file.empty() || bedgraph_files.empty())
     {
-        std::cerr << "[ERROR] Missing input file! Exiting...";
+        std::cerr << "[ERROR] Missing input file! Exiting..." << std::endl;
         return;
     }
 
@@ -449,7 +449,7 @@ void Parser::search_directory() {
 
     // fill up rail_id_to_mm_id mapping for all rail_ids provided by the user
     fill_up(bedgraph_files);
-    std::cout << "[INFO] User provided " << mm_ids.size() << " bedgraph files." << std::endl;
+    std::cout << "[INFO] User provided " << mm_ids.size() << " samples." << std::endl;
 
     unsigned int max_threads = std::max(user_cores, min_cores); //require at least 3 cores + 1 core fo
     unsigned int nof_samples =  mm_ids.size();
