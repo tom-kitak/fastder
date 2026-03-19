@@ -34,6 +34,7 @@ public:
     uint64_t start;
     uint64_t end;
     std::string chrom;
+    std::string strand = ".";  // "+" or "-" for stranded, "." for unstranded
 
     // overload output operator for SJRow
     friend std::ostream& operator<< (std::ostream& os, const StitchedER& stitched_er)

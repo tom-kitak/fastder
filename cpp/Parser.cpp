@@ -20,9 +20,10 @@
 #include <filesystem>
 
 // constructor
-Parser::Parser(std::string path_, std::vector<std::string> chromosomes_, int cores_) {
+Parser::Parser(std::string path_, std::vector<std::string> chromosomes_, int cores_, bool stranded_) {
     path = path_;
     user_cores = cores_;
+    stranded = stranded_;
     std::cout << "[INFO] fastder will use up to " << cores_ << " cores. To change the maximum number of cores, provide a different value with the --cores flag." << std::endl;
 
     if (chromosomes_.empty())
@@ -335,11 +336,12 @@ void Parser::fill_up(std::vector<std::string> bedgraph_files)
     }
 }
 
-void Parser::read_all_bedgraphs(std::vector<std::string> bedgraph_files, unsigned int nof_threads) {
+void Parser::read_all_bedgraphs(std::vector<std::string> bedgraph_files, unsigned int nof_threads,
+                                std::vector<std::unordered_map<std::string, std::vector<double>>>& target_coverages) {
     std::cout << "[INFO] fastder is using " << nof_threads + 1 << " threads for parsing." << std::endl;
     // reserve space
-    all_bedgraphs.resize(bedgraph_files.size());
-    all_per_base_coverages.resize(bedgraph_files.size());
+    all_bedgraphs.resize(all_bedgraphs.size() + bedgraph_files.size());
+    target_coverages.resize(bedgraph_files.size());
 
     // storage for threads
     std::vector<std::thread> threads;
@@ -351,8 +353,11 @@ void Parser::read_all_bedgraphs(std::vector<std::string> bedgraph_files, unsigne
     // sequence of samples within all_bedgraphs is irrelevant
     std::atomic_int next_index{0};
 
+    // offset for all_bedgraphs indexing when processing stranded files
+    unsigned int bedgraph_offset = all_bedgraphs.size() - bedgraph_files.size();
+
     for (unsigned int t = 0; t < nof_threads; ++t) {
-        threads.emplace_back([this, &bedgraph_files, &next_index]() {
+        threads.emplace_back([this, &bedgraph_files, &next_index, &target_coverages, bedgraph_offset]() {
             // infinite loop to ensure that each thread takes the next bedgraph in the queue when it's done
             while (true) {
                 unsigned int i = next_index++; //passes index, then does post-increment!
@@ -377,8 +382,8 @@ void Parser::read_all_bedgraphs(std::vector<std::string> bedgraph_files, unsigne
                 // add all bedgraphs of one sample to the matrix
                 {
                     std::lock_guard lock(mutex);
-                    all_bedgraphs[i] = std::move(sample_bedgraph);
-                    all_per_base_coverages[i] = std::move(per_base_coverage);
+                    all_bedgraphs[bedgraph_offset + i] = std::move(sample_bedgraph);
+                    target_coverages[i] = std::move(per_base_coverage);
                 }
 
             }
@@ -396,6 +401,8 @@ void Parser::search_directory() {
 
     // first check for the external_id to rail_id mapping CSV file
     std::vector<std::string> bedgraph_files;
+    std::vector<std::string> bedgraph_files_plus;
+    std::vector<std::string> bedgraph_files_minus;
     std::string mm_file;
     for (const auto & entry : std::filesystem::directory_iterator(path))
     {
@@ -417,21 +424,46 @@ void Parser::search_directory() {
         // collect all bedgraph files to later fill up rail_id_to_mm_id
         else if (filename.find(".bedGraph") != std::string::npos)
         {
-            bedgraph_files.emplace_back(filename);
+            if (stranded)
+            {
+                // classify bedGraph files by strand based on filename
+                if (filename.find("plus") != std::string::npos || filename.find("strand+") != std::string::npos)
+                {
+                    bedgraph_files_plus.emplace_back(filename);
+                }
+                else if (filename.find("minus") != std::string::npos || filename.find("strand-") != std::string::npos)
+                {
+                    bedgraph_files_minus.emplace_back(filename);
+                }
+                else
+                {
+                    std::cerr << "[WARNING] Stranded mode enabled but BedGraph file " << filename
+                              << " does not contain 'plus'/'strand+' or 'minus'/'strand-' in name. Skipping." << std::endl;
+                }
+                // also add to bedgraph_files for fill_up() sample matching
+                bedgraph_files.emplace_back(filename);
+            }
+            else
+            {
+                bedgraph_files.emplace_back(filename);
+            }
         }
 
         else if (entry.path().extension().string() == ".MM" && filename.find("ALL.MM") != std::string::npos && filename.find("mmcache") == std::string::npos) {
             mm_file = filename;
         }
-        // else {
-        //     std::cout << "[INFO] Unknown file category: " << filename  << std::endl;
-        // }
     }
 
     // program cannot run with missing BigWig URL list
     if (!contains_ids || mm_file.empty() || bedgraph_files.empty())
     {
         std::cerr << "[ERROR] Missing input file! Exiting..." << std::endl;
+        return;
+    }
+
+    if (stranded && (bedgraph_files_plus.empty() || bedgraph_files_minus.empty()))
+    {
+        std::cerr << "[ERROR] Stranded mode enabled but missing plus-strand or minus-strand BedGraph files! Exiting..." << std::endl;
         return;
     }
 
@@ -454,8 +486,21 @@ void Parser::search_directory() {
     std::cout << "[FILE] Processing MM File " << mm_file << std::endl;
     std::thread mm_thread(&Parser::read_mm, this, mm_file);
 
-    // parse all bedgraph files concurrently
-    read_all_bedgraphs(bedgraph_files, nof_threads);
+    if (stranded)
+    {
+        // parse plus-strand and minus-strand bedGraph files separately
+        std::cout << "[INFO] Stranded mode: parsing " << bedgraph_files_plus.size() << " plus-strand and "
+                  << bedgraph_files_minus.size() << " minus-strand BedGraph files." << std::endl;
+        unsigned int nof_threads_plus = std::min(user_cores, static_cast<unsigned int>(bedgraph_files_plus.size()));
+        read_all_bedgraphs(bedgraph_files_plus, nof_threads_plus, all_per_base_coverages_plus);
+        unsigned int nof_threads_minus = std::min(user_cores, static_cast<unsigned int>(bedgraph_files_minus.size()));
+        read_all_bedgraphs(bedgraph_files_minus, nof_threads_minus, all_per_base_coverages_minus);
+    }
+    else
+    {
+        // parse all bedgraph files concurrently (unstranded mode)
+        read_all_bedgraphs(bedgraph_files, nof_threads, all_per_base_coverages);
+    }
 
     // stop MM thread
     mm_thread.join();

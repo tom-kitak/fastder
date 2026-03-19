@@ -22,6 +22,7 @@ int main(int argc, char* argv[]) {
     double min_coverage = 0.05;
     std::string directory;
     int cores = 10;
+    bool stranded = false;
 
     std::cout
     << "\n "
@@ -50,6 +51,9 @@ int main(int argc, char* argv[]) {
                 << "                               Example: --coverage-tolerance 0.8\n\n"
                 << "  --cores <int>                Number of cores that fastder may use. Default = 10 cores.\n"
                 << "                               Example: --cores 23\n\n"
+                << "  --stranded                   Enable stranded mode. Expects paired BedGraph files per sample\n"
+                << "                               with 'plus'/'strand+' or 'minus'/'strand-' in filename.\n"
+                << "                               Processes each strand independently and outputs strand-specific GTF.\n\n"
                 << "Example:\n"
                 << "  ./fastder --dir ../data --chr chr1 chr2 --position-tolerance 5 "
                  "--min-coverage 0.05 --coverage-tolerance 0.7 --cores 23\n"
@@ -104,6 +108,10 @@ int main(int argc, char* argv[]) {
         {
             directory = argv[++i];
         }
+        else if (arg == "--stranded")
+        {
+            stranded = true;
+        }
         else
         {
             std::cout << "[ERROR] Unknown argument '" << argv[i] << "'" << std::endl;
@@ -120,7 +128,8 @@ int main(int argc, char* argv[]) {
 
     // parse files
     std::cout << "[INFO] Expecting to parse MM, RR, BedGraph and Metadata CSV files from " << directory << std::endl;
-    Parser parser(directory, chromosomes, cores);
+    if (stranded) std::cout << "[INFO] Stranded mode enabled." << std::endl;
+    Parser parser(directory, chromosomes, cores, stranded);
     parser.search_directory();
 
     // print parsing duration
@@ -128,47 +137,89 @@ int main(int argc, char* argv[]) {
     std::chrono::duration<double> elapsed_parsing = end_parsing - start;
     std::cout << "[INFO] Parsing took " << elapsed_parsing.count() << " seconds.\n \n";
 
-    // get mean coverage vector
-    Averager averager(cores);
-    averager.compute_mean_coverage(parser.all_per_base_coverages);
-
-    averager.find_ERs(min_coverage, min_length);
-
-    // use splice junctions to stitch together expressed regions
-    Integrator integrator = Integrator(coverage_tolerance, position_tolerance);
-    integrator.stitch_up(averager.expressed_regions, parser.mm_chrom_sj, parser.rr_all_sj);
-
-
-    // SUMMARY OF SPLICE JUNCTIONS
-    for (auto& c : parser.mm_chrom_sj)
-    {
-        std::cout << "[INFO] Splice junctions in " << c.first << " : " << c.second.size() << std::endl;
-    }
-
-    // SUMMARY OF EXPRESSED REGIONS
-    for (auto& c : averager.expressed_regions)
-    {
-        std::cout << "[INFO] Expressed Regions in " << c.first << ": " << c.second.size() << std::endl;
-    }
-
-    // SUMMARY OF STITCHED EXPRESSED REGIONS
-    std::unordered_map<std::string, int> ser_counts;
-    for (auto& stitched_er : integrator.stitched_ERs)
-    {
-        ser_counts[stitched_er.chrom]++;
-    }
-
-    std::cout << "[INFO] Total Stitched ERs across all chromosomes: "  << integrator.stitched_ERs.size() << std::endl;
-
-    for (auto& c : ser_counts)
-    {
-        std::cout << "[INFO] Stitched ERs in " << c.first << ": " << c.second << std::endl;
-    }
-
-
-    // convert to GTF format
+    // build output path
     std::string prefix = (directory.back() == '/') ? "FASTDER_RESULT_POS_TOL_" : "/FASTDER_RESULT_POS_TOL_";
     std::string output_path = directory + prefix + std::to_string(position_tolerance) + "_MIN_COV_" + std::to_string(min_coverage) + "_COV_TOL_" + std::to_string(coverage_tolerance) + "_MIN_LENGTH_" + std::to_string(min_length) + ".gtf";
+
+    Integrator integrator(coverage_tolerance, position_tolerance);
+
+    if (stranded)
+    {
+        // --- Plus strand ---
+        std::cout << "\n[INFO] === Processing plus (+) strand ===" << std::endl;
+        Averager avg_plus(cores);
+        avg_plus.compute_mean_coverage(parser.all_per_base_coverages_plus);
+        avg_plus.find_ERs(min_coverage, min_length);
+
+        auto plus_sjs = Integrator::filter_sjs_by_strand(parser.mm_chrom_sj, parser.rr_all_sj, true);
+        Integrator int_plus(coverage_tolerance, position_tolerance);
+        int_plus.stitch_up(avg_plus.expressed_regions, plus_sjs, parser.rr_all_sj);
+        for (auto& ser : int_plus.stitched_ERs) ser.strand = "+";
+
+        // --- Minus strand ---
+        std::cout << "\n[INFO] === Processing minus (-) strand ===" << std::endl;
+        Averager avg_minus(cores);
+        avg_minus.compute_mean_coverage(parser.all_per_base_coverages_minus);
+        avg_minus.find_ERs(min_coverage, min_length);
+
+        auto minus_sjs = Integrator::filter_sjs_by_strand(parser.mm_chrom_sj, parser.rr_all_sj, false);
+        Integrator int_minus(coverage_tolerance, position_tolerance);
+        int_minus.stitch_up(avg_minus.expressed_regions, minus_sjs, parser.rr_all_sj);
+        for (auto& ser : int_minus.stitched_ERs) ser.strand = "-";
+
+        // --- Merge results ---
+        integrator.stitched_ERs.insert(integrator.stitched_ERs.end(),
+            int_plus.stitched_ERs.begin(), int_plus.stitched_ERs.end());
+        integrator.stitched_ERs.insert(integrator.stitched_ERs.end(),
+            int_minus.stitched_ERs.begin(), int_minus.stitched_ERs.end());
+
+        // Summary
+        std::cout << "\n[INFO] Plus-strand Stitched ERs: " << int_plus.stitched_ERs.size() << std::endl;
+        std::cout << "[INFO] Minus-strand Stitched ERs: " << int_minus.stitched_ERs.size() << std::endl;
+        std::cout << "[INFO] Total Stitched ERs (both strands): " << integrator.stitched_ERs.size() << std::endl;
+
+        for (auto& c : plus_sjs)
+            std::cout << "[INFO] Plus-strand splice junctions in " << c.first << " : " << c.second.size() << std::endl;
+        for (auto& c : minus_sjs)
+            std::cout << "[INFO] Minus-strand splice junctions in " << c.first << " : " << c.second.size() << std::endl;
+    }
+    else
+    {
+        // --- Unstranded mode (original pipeline) ---
+        Averager averager(cores);
+        averager.compute_mean_coverage(parser.all_per_base_coverages);
+
+        averager.find_ERs(min_coverage, min_length);
+
+        integrator.stitch_up(averager.expressed_regions, parser.mm_chrom_sj, parser.rr_all_sj);
+
+        // SUMMARY OF SPLICE JUNCTIONS
+        for (auto& c : parser.mm_chrom_sj)
+        {
+            std::cout << "[INFO] Splice junctions in " << c.first << " : " << c.second.size() << std::endl;
+        }
+
+        // SUMMARY OF EXPRESSED REGIONS
+        for (auto& c : averager.expressed_regions)
+        {
+            std::cout << "[INFO] Expressed Regions in " << c.first << ": " << c.second.size() << std::endl;
+        }
+
+        // SUMMARY OF STITCHED EXPRESSED REGIONS
+        std::unordered_map<std::string, int> ser_counts;
+        for (auto& stitched_er : integrator.stitched_ERs)
+        {
+            ser_counts[stitched_er.chrom]++;
+        }
+
+        std::cout << "[INFO] Total Stitched ERs across all chromosomes: " << integrator.stitched_ERs.size() << std::endl;
+        for (auto& c : ser_counts)
+        {
+            std::cout << "[INFO] Stitched ERs in " << c.first << ": " << c.second << std::endl;
+        }
+    }
+
+    // convert to GTF format
     integrator.write_to_gtf(output_path);
 
     // print duration

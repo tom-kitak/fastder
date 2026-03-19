@@ -15,11 +15,12 @@ namespace fs = std::filesystem;
 
 class Parser {
 public:
-    Parser(std::string path_, std::vector<std::string> chromosomes_, int cores_);
+    Parser(std::string path_, std::vector<std::string> chromosomes_, int cores_, bool stranded_ = false);
     void search_directory();
 
     // read in individual file types
-    void read_all_bedgraphs(std::vector<std::string> bedgraph_files, unsigned int nof_threads);
+    void read_all_bedgraphs(std::vector<std::string> bedgraph_files, unsigned int nof_threads,
+                            std::vector<std::unordered_map<std::string, std::vector<double>>>& target_coverages);
     std::vector<BedGraphRow> read_bedgraph(const std::string& filename, uint64_t& library_size) const;
     void read_mm(std::string filename);
     void read_rr(std::string filename);
@@ -29,12 +30,16 @@ public:
     static void compute_per_base_coverage(const BedGraphRow& row, std::unordered_map<std::string, std::vector<double>>& per_base_coverage);
 
     // TODO add function get_rail_id_from_filename(filename)?
+    bool stranded;
     unsigned int user_cores;
     std::string path;
     std::vector<std::string> chromosomes_vec; // for fast iteration
     std::unordered_set<std::string> chromosomes_set; // for fast check if chromosome is included
     std::vector<std::vector<BedGraphRow>> all_bedgraphs; //TODO maybe change to unordered map with key = sample id, value = bedgraph of the sample?
     std::vector<std::unordered_map<std::string, std::vector<double>>> all_per_base_coverages; //NOT ordered by chromosomes
+    // stranded mode: separate coverage collections per strand
+    std::vector<std::unordered_map<std::string, std::vector<double>>> all_per_base_coverages_plus;
+    std::vector<std::unordered_map<std::string, std::vector<double>>> all_per_base_coverages_minus;
     // store RR info for each splice junctions
     std::vector<SJRow> rr_all_sj;
 

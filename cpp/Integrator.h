@@ -28,6 +28,11 @@ class Integrator
 
     void write_to_gtf(const std::string& output_path);
 
+    static std::map<std::string, std::vector<uint64_t>> filter_sjs_by_strand(
+        const std::map<std::string, std::vector<uint64_t>>& mm_chrom_sj,
+        const std::vector<SJRow>& rr_all_sj,
+        bool target_strand);
+
     // MEMBERS
     std::vector<StitchedER> stitched_ERs;
 

@@ -49,6 +49,10 @@ void Integrator::stitch_up(std::unordered_map<std::string, std::vector<BedGraphR
     {
         //std::cout << "[INFO] Stitching chromosome " << sjs.first << std::endl;
         std::string chrom = sjs.first;
+        // skip chromosomes with no expressed regions (can happen with high min-coverage)
+        if (expressed_regions.find(chrom) == expressed_regions.end() || expressed_regions.at(chrom).empty()) {
+            continue;
+        }
         StitchedER er1 = StitchedER(expressed_regions.at(chrom).at(0), 0); // define the first StitchedER, currently consisting of 1 ER
         stitched_ERs.emplace_back(er1);
         auto current_sj_id = sjs.second.begin(); // iterator over the vector of sj_id
@@ -108,6 +112,25 @@ void Integrator::stitch_up(std::unordered_map<std::string, std::vector<BedGraphR
     }
 }
 
+
+std::map<std::string, std::vector<uint64_t>> Integrator::filter_sjs_by_strand(
+    const std::map<std::string, std::vector<uint64_t>>& mm_chrom_sj,
+    const std::vector<SJRow>& rr_all_sj,
+    bool target_strand)
+{
+    std::map<std::string, std::vector<uint64_t>> filtered;
+    for (const auto& [chrom, sj_ids] : mm_chrom_sj)
+    {
+        for (uint64_t sj_id : sj_ids)
+        {
+            if (rr_all_sj[sj_id - 1].strand == target_strand)
+            {
+                filtered[chrom].push_back(sj_id);
+            }
+        }
+    }
+    return filtered;
+}
 
 void Integrator::write_to_gtf(const std::string& output_path)
 {

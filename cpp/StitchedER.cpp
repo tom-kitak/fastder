@@ -54,6 +54,3 @@ void StitchedER::append(int er_id, unsigned int length, double coverage)
 
 
 }
-
-
-
